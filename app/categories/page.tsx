@@ -49,6 +49,7 @@ export default function Categories() {
       setPhylums([])
       setSelectedPhylum(null)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUniverse])
 
   useEffect(() => {
@@ -61,6 +62,7 @@ export default function Categories() {
       setSelectedFamily(null)
       setSelectedGroup(null)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPhylum])
 
   useEffect(() => {
@@ -70,6 +72,7 @@ export default function Categories() {
       setTasks([])
       setSelectedTask(null)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPhylum, selectedFamily, selectedGroup])
 
   async function loadUniverses() {
@@ -101,12 +104,12 @@ export default function Categories() {
   }
 
   async function loadGroups() {
-    if (!selectedPhylum) return
+    if (!selectedPhylum || !selectedUniverse) return
     
     const query = supabase
       .from('tasks')
       .select('group_num, id')
-      .eq('universe_id', selectedUniverse!.id)
+      .eq('universe_id', selectedUniverse.id)
       .eq('phylum_id', selectedPhylum.id)
     
     if (selectedFamily) {
@@ -121,7 +124,7 @@ export default function Categories() {
         groupMap.set(task.group_num, (groupMap.get(task.group_num) || 0) + 1)
       })
       
-      const groupList = Array.from(groupMap.entries()).map(([num, count]) => ({
+      const groupList = Array.from(groupMap.entries()).map(([num]) => ({
         number: num,
         tasks: []
       }))
@@ -131,12 +134,12 @@ export default function Categories() {
   }
 
   async function loadTasks() {
-    if (!selectedPhylum || selectedGroup === null) return
+    if (!selectedPhylum || !selectedUniverse || selectedGroup === null) return
     
     const query = supabase
       .from('task_details')
       .select('*')
-      .eq('universe_id', selectedUniverse!.id)
+      .eq('universe_id', selectedUniverse.id)
       .eq('phylum_id', selectedPhylum.id)
       .eq('group_num', selectedGroup)
     
@@ -263,7 +266,7 @@ export default function Categories() {
                     <span className="text-sm text-gray-600 dark:text-gray-400">({universe.name})</span>
                   </div>
                 </div>
-            })}
+              ))}
               
               {/* Create Universe */}
               {!creatingUniverse ? (
@@ -526,7 +529,7 @@ export default function Categories() {
                       }`}
                     >
                       <div className="font-mono text-sm mb-1">
-                        {String(task.task_num).padStart(2, '0')} "{task.title}"
+                        {String(task.task_num).padStart(2, '0')} &quot;{task.title}&quot;
                       </div>
                     </div>
                   ))}
