@@ -115,6 +115,7 @@ export default function Home() {
       setSelectedGroup(null)
       setExistingTasks([])
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupNum, groups, selectedUniverse, selectedPhylum])
 
   useEffect(() => {
@@ -122,6 +123,7 @@ export default function Home() {
     if (selectedUniverse && selectedPhylum && groupNum && taskNum && taskNum.length === 2) {
       checkExistingTask()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUniverse, selectedPhylum, selectedFamily, groupNum, taskNum])
 
   async function loadData() {
@@ -271,18 +273,28 @@ export default function Home() {
 
       // First create/ensure group exists
       if (!selectedGroup && selectedUniverse && selectedPhylum) {
-        const { data: groupData } = await supabase
+        // Check if group exists first
+        const { data: existingGroup } = await supabase
           .from('groups')
-          .insert({
-            universe_id: selectedUniverse.id,
-            phylum_id: selectedPhylum.id,
-            family_id: selectedFamily?.id || null,
-            group_num: parseInt(groupNum),
-            name: `Group ${groupNum}`
-          })
-          .select()
+          .select('*')
+          .eq('universe_id', selectedUniverse.id)
+          .eq('phylum_id', selectedPhylum.id)
+          .eq('group_num', parseInt(groupNum))
+          .is('family_id', selectedFamily?.id || null)
           .single()
-          .onConflict('universe_id,phylum_id,family_id,group_num')
+        
+        // Only create if it doesn't exist
+        if (!existingGroup) {
+          await supabase
+            .from('groups')
+            .insert({
+              universe_id: selectedUniverse.id,
+              phylum_id: selectedPhylum.id,
+              family_id: selectedFamily?.id || null,
+              group_num: parseInt(groupNum),
+              name: `Group ${groupNum}`
+            })
+        }
       }
 
       // Create task
