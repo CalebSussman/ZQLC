@@ -545,6 +545,149 @@ export default function Home() {
             >
               {isExistingTask ? 'Add Entry' : 'Create Task'}
             </button>
+            {/* Selection Panels - Add this entire section */}
+{/* Status Selector - Always visible */}
+{statuses.length > 0 && (
+  <div className="mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg">
+    <h3 className="font-semibold mb-2 dark:text-white">Select Status:</h3>
+    <div className="grid grid-cols-3 gap-2">
+      {statuses.map((status) => (
+        <button
+          key={status.code}
+          onClick={() => {
+            setSelectedStatus(status)
+            setStatusCode(status.code)
+          }}
+          className={`p-3 rounded border transition-all ${
+            (selectedStatus?.code === status.code || statusCode.toUpperCase() === status.code)
+              ? 'bg-purple-100 dark:bg-purple-900 border-purple-500 dark:border-purple-400 ring-2 ring-purple-400'
+              : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-500'
+          }`}
+        >
+          <div className="font-bold text-purple-600 dark:text-purple-400">{status.code}</div>
+          <div className="text-sm dark:text-gray-300">{status.name}</div>
+        </button>
+      ))}
+    </div>
+  </div>
+)}
+
+{/* Universe Selector */}
+{universes.length > 0 && (
+  <div className="mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg">
+    <h3 className="font-semibold mb-2 dark:text-white">Select Universe:</h3>
+    <div className="grid grid-cols-3 gap-2">
+      {universes.map((universe) => (
+        <button
+          key={universe.id}
+          onClick={() => {
+            setSelectedUniverse(universe)
+            setUniverseCode(universe.code)
+          }}
+          className={`p-3 rounded border transition-all ${
+            (selectedUniverse?.id === universe.id || universeCode.toUpperCase() === universe.code.toUpperCase())
+              ? 'bg-blue-100 dark:bg-blue-900 border-blue-500 dark:border-blue-400 ring-2 ring-blue-400'
+              : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500'
+          }`}
+        >
+          <div className="font-bold text-xl dark:text-white">{universe.code}</div>
+          <div className="text-sm dark:text-gray-300">{universe.name}</div>
+        </button>
+      ))}
+    </div>
+  </div>
+)}
+
+{/* Phylum Selector */}
+{phylums.length > 0 && (
+  <div className="mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg">
+    <h3 className="font-semibold mb-2 dark:text-white">Select Phylum:</h3>
+    <div className="grid grid-cols-3 gap-2">
+      {phylums.map((phylum) => (
+        <button
+          key={phylum.id}
+          onClick={() => {
+            setSelectedPhylum(phylum)
+            setPhylumCode(phylum.code)
+          }}
+          className={`p-3 rounded border transition-all ${
+            (selectedPhylum?.id === phylum.id || phylumCode.toUpperCase() === phylum.code.toUpperCase())
+              ? 'bg-blue-100 dark:bg-blue-900 border-blue-500 dark:border-blue-400 ring-2 ring-blue-400'
+              : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500'
+          }`}
+        >
+          <div className="font-bold text-xl dark:text-white">{phylum.code}</div>
+          <div className="text-sm dark:text-gray-300">{phylum.name}</div>
+        </button>
+      ))}
+    </div>
+  </div>
+)}
+
+{/* Family Selector */}
+{families.length > 0 && (
+  <div className="mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg">
+    <h3 className="font-semibold mb-2 dark:text-white">Select Family (Optional):</h3>
+    <button
+      onClick={() => {
+        setSelectedFamily(null)
+        setFamilyCode('')
+      }}
+      className={`w-full mb-2 p-2 text-left rounded transition-all ${
+        !selectedFamily && !familyCode
+          ? 'bg-blue-100 dark:bg-blue-900 border-2 border-blue-500 dark:border-blue-400'
+          : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+      }`}
+    >
+      (No family - skip to group)
+    </button>
+    <div className="grid grid-cols-3 gap-2">
+      {families.map((family) => (
+        <button
+          key={family.id}
+          onClick={() => {
+            setSelectedFamily(family)
+            setFamilyCode(family.code)
+          }}
+          className={`p-3 rounded border transition-all ${
+            (selectedFamily?.id === family.id || familyCode.toUpperCase() === family.code.toUpperCase())
+              ? 'bg-blue-100 dark:bg-blue-900 border-blue-500 dark:border-blue-400 ring-2 ring-blue-400'
+              : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500'
+          }`}
+        >
+          <div className="font-bold text-xl dark:text-white">{family.code}</div>
+          <div className="text-sm dark:text-gray-300">{family.name}</div>
+        </button>
+      ))}
+    </div>
+  </div>
+)}
+
+{/* Groups Selector */}
+{groups.length > 0 && (
+  <div className="mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg">
+    <h3 className="font-semibold mb-2 dark:text-white">Select Group:</h3>
+    <div className="grid grid-cols-4 gap-2">
+      {groups.map((group) => (
+        <button
+          key={group.id || group.group_num}
+          onClick={() => {
+            setGroupNum(String(group.group_num).padStart(2, '0'))
+            setSelectedGroup(group)
+          }}
+          className={`p-2 rounded border transition-all ${
+            (selectedGroup?.group_num === group.group_num || parseInt(groupNum) === group.group_num)
+              ? 'bg-green-100 dark:bg-green-900 border-green-500 dark:border-green-400 ring-2 ring-green-400'
+              : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-green-300 dark:hover:border-green-500'
+          }`}
+        >
+          <div className="font-mono font-bold dark:text-white">{String(group.group_num).padStart(2, '0')}</div>
+          <div className="text-xs dark:text-gray-300">{group.name}</div>
+        </button>
+      ))}
+    </div>
+  </div>
+)}
           </div>
 
           {/* Recent Tasks - Mobile Optimized */}
