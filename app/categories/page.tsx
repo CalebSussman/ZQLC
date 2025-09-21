@@ -13,6 +13,7 @@ interface Group {
   group_num: number
   name: string
   description?: string
+  task_count?: number  // Add this line
 }
 
 export default function Categories() {
@@ -128,7 +129,7 @@ export default function Categories() {
     if (!selectedPhylum || !selectedUniverse) return
     
     const query = supabase
-      .from('groups')
+      .from('groups_with_counts')
       .select('*')
       .eq('universe_id', selectedUniverse.id)
       .eq('phylum_id', selectedPhylum.id)
@@ -730,7 +731,8 @@ export default function Categories() {
                       ) : (
                         <div className="flex items-center justify-between">
                           <span className="text-lg font-mono">
-                            {String(group.group_num).padStart(2, '0')} - {group.name}
+                              {String(group.group_num).padStart(2, '0')} - {group.name}
+                              {group.task_count ? ` (${group.task_count} tasks)` : ''}
                           </span>
                           {group.id && (
                             <button
