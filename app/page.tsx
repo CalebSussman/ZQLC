@@ -235,7 +235,7 @@ export default function Home() {
     minute: '2-digit',
     second: '2-digit',
     hour12: false
-  }).replace(/\//g, '.').replace(', ', ':').replace(/:/g, '.', 2)
+ }).replace(/\//g, '.').replace(', ', ':').replace(/:/g, '.')
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
