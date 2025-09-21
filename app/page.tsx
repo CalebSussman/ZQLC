@@ -179,21 +179,21 @@ export default function Home() {
   }
 
   async function loadGroups(universeId: string, phylumId: string, familyId?: string | null) {
-    const query = supabase
-      .from('groups')
-      .select('*')
-      .eq('universe_id', universeId)
-      .eq('phylum_id', phylumId)
-    
-    if (familyId) {
-      query.eq('family_id', familyId)
-    } else {
-      query.is('family_id', null)
-    }
-    
-    const { data } = await query.order('group_num')
-    setGroups(data || [])
+  const query = supabase
+    .from('groups_with_counts')  // <-- CHANGED: Use the view instead
+    .select('*')
+    .eq('universe_id', universeId)
+    .eq('phylum_id', phylumId)
+  
+  if (familyId) {
+    query.eq('family_id', familyId)
+  } else {
+    query.is('family_id', null)
   }
+  
+  const { data } = await query.order('group_num')
+  setGroups(data || [])
+}
 
   async function loadTasksInGroup() {
     if (!selectedUniverse || !selectedPhylum || !groupNum) return
