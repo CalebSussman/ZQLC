@@ -23,12 +23,14 @@ export default function TaskPage() {
     if (taskCode) {
       fetchTask()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskCode])
 
   useEffect(() => {
     if (task?.id) {
       fetchNotes()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task])
 
   async function fetchTask() {
