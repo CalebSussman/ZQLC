@@ -483,7 +483,7 @@ export default function Home() {
                   className="flex items-center justify-between p-3 bg-white/50 dark:bg-gray-800/50 rounded hover:bg-white dark:hover:bg-gray-800 cursor-pointer"
                 >
                   <span className="font-mono text-sm">
-                    {task.code.toUpperCase()}: "{task.title}"
+                   {task.code.toUpperCase()}: &quot;{task.title}&quot;
                   </span>
                   <span className="text-xs text-gray-500">
                     {new Date(task.updated_at).toLocaleString()}
