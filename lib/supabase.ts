@@ -43,10 +43,10 @@ export interface Group {
   id?: string
   universe_id: string
   phylum_id: string
-  family_id?: string
+  family_id?: string | null
   group_num: number
-  name: string
-  description?: string
+  name?: string | null
+  task_count?: number  
   created_at?: string
   updated_at?: string
 }
