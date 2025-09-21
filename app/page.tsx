@@ -5,6 +5,18 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Task, Universe, Phylum, Family } from '@/lib/supabase'
 
+interface Status {
+  code: string
+  name: string
+  description: string
+}
+
+const STATUSES: Status[] = [
+  { code: 'R', name: 'Received', description: 'Task has been received and acknowledged' },
+  { code: 'D', name: 'Delivered', description: 'Task has been completed and delivered' },
+  { code: 'F', name: 'Filed', description: 'Task has been filed for future reference' }
+]
+
 export default function Home() {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -17,11 +29,12 @@ export default function Home() {
   
   // Task creation state
   const [taskName, setTaskName] = useState('')
-  const [taskCode, setTaskCode] = useState('')
+  const [selectedStatus, setSelectedStatus] = useState<Status | null>(STATUSES[0]) // Default to Received
   const [selectedUniverse, setSelectedUniverse] = useState<Universe | null>(null)
   const [selectedPhylum, setSelectedPhylum] = useState<Phylum | null>(null)
   const [selectedFamily, setSelectedFamily] = useState<Family | null>(null)
   const [groupNum, setGroupNum] = useState('##')
+  const [groupName, setGroupName] = useState('')
   const [taskNum, setTaskNum] = useState('##')
   
   // UI state
@@ -129,7 +142,7 @@ export default function Home() {
   async function createUniverse() {
     if (!newUniverseName) return
     
-    const code = newUniverseName.substring(0, 3).toLowerCase()
+    const code = newUniverseName.substring(0, 1).toUpperCase()
     const { data } = await supabase
       .from('universes')
       .insert({
@@ -151,7 +164,7 @@ export default function Home() {
   async function createPhylum() {
     if (!newPhylumName || !selectedUniverse) return
     
-    const code = newPhylumName.substring(0, 3).toLowerCase()
+    const code = newPhylumName.substring(0, 1).toUpperCase()
     const { data } = await supabase
       .from('phyla')
       .insert({
@@ -173,7 +186,7 @@ export default function Home() {
   async function createFamily() {
     if (!newFamilyName || !selectedPhylum) return
     
-    const code = newFamilyName.substring(0, 3).toLowerCase()
+    const code = newFamilyName.substring(0, 1).toUpperCase()
     const { data } = await supabase
       .from('families')
       .insert({
@@ -193,11 +206,12 @@ export default function Home() {
   }
 
   async function createTask() {
-    if (!taskName || !selectedUniverse || !selectedPhylum || groupNum === '##' || taskNum === '##') {
+    if (!taskName || !selectedStatus || !selectedUniverse || !selectedPhylum || groupNum === '##' || taskNum === '##') {
       return
     }
 
-    const code = `${selectedUniverse.code}${selectedPhylum.code}${selectedFamily?.code || ''}-${groupNum}${taskNum}`.toLowerCase()
+    const timestamp = new Date().toISOString().replace(/[T]/g, '.').replace(/[-:]/g, '.').substring(0, 16)
+    const code = `${selectedStatus.code}-${timestamp}-${selectedUniverse.code}${selectedPhylum.code}${selectedFamily?.code || ''}-${groupNum}.${taskNum}`.toUpperCase()
 
     const { data: task } = await supabase
       .from('tasks')
@@ -210,32 +224,31 @@ export default function Home() {
         group_num: parseInt(groupNum),
         task_num: parseInt(taskNum),
         priority: 3,
-        status: 'active'
+        status: 'active',
+        task_timestamp: new Date()
       })
       .select()
       .single()
 
     if (task) {
+      // Optionally save group name as a note
+      if (groupName) {
+        await supabase
+          .from('task_notes')
+          .insert({
+            task_id: task.id,
+            type: 'task',
+            content: `Group: ${groupName}`
+          })
+      }
       router.push(`/t/${code}`)
     }
   }
 
-  function getDisplayCode() {
-    const u = selectedUniverse?.code.toUpperCase() || 'U'
-    const p = selectedPhylum?.code.toUpperCase() || 'P'
-    const f = selectedFamily?.code.toUpperCase() || ''
-    return `${u}${f ? '/' : ''}${p}${f ? '/' : ''}${f}${f ? '' : ''}-${groupNum}.${taskNum}`
-  }
-
-  const timestamp = new Date().toLocaleString('en-US', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
- }).replace(/\//g, '.').replace(', ', ':').replace(/:/g, '.')
+  const timestamp = new Date().toISOString()
+    .replace(/[T]/g, '.')
+    .replace(/[-:]/g, '.')
+    .substring(0, 16)
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -283,6 +296,16 @@ export default function Home() {
             <div className="text-3xl font-mono mb-4">
               <span className="text-gray-500">[</span>
               
+              {/* Status selector */}
+              <span 
+                className={`cursor-pointer px-1 ${selectedStatus ? 'text-purple-600 font-bold' : 'text-gray-400'} hover:bg-gray-200 dark:hover:bg-gray-700 rounded`}
+                onClick={() => setFocusedField('status')}
+              >
+                {selectedStatus ? selectedStatus.code : 'S'}
+              </span>
+              
+              <span className="text-gray-500"> - </span>
+              
               {/* Universe selector */}
               <span 
                 className={`cursor-pointer px-1 ${selectedUniverse ? 'text-blue-600' : 'text-gray-400'} hover:bg-gray-200 dark:hover:bg-gray-700 rounded`}
@@ -313,14 +336,22 @@ export default function Home() {
               
               <span className="text-gray-500">]-</span>
               
-              {/* Group number */}
-              <input
-                type="text"
-                value={groupNum}
-                onChange={(e) => setGroupNum(e.target.value.replace(/\D/g, '').slice(0, 2).padStart(2, '0'))}
-                className="w-16 text-center bg-transparent border-b border-gray-400 focus:outline-none focus:border-blue-600"
-                placeholder="##"
-              />
+              {/* Group number with name */}
+              <span 
+                className="cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 rounded px-1"
+                onClick={() => setFocusedField('group')}
+              >
+                <input
+                  type="text"
+                  value={groupNum}
+                  onChange={(e) => setGroupNum(e.target.value.replace(/\D/g, '').slice(0, 2).padStart(2, '0'))}
+                  className="w-16 text-center bg-transparent border-b border-gray-400 focus:outline-none focus:border-blue-600"
+                  placeholder="##"
+                />
+                {groupName && (
+                  <span className="text-sm text-gray-600 ml-1">({groupName})</span>
+                )}
+              </span>
               
               <span className="text-gray-500">.</span>
               
@@ -336,7 +367,66 @@ export default function Home() {
 
             <div className="text-gray-500 mb-6">{timestamp}</div>
 
-            {/* Selector Dropdowns */}
+            {/* Status Selector */}
+            {focusedField === 'status' && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 mb-4">
+                <h3 className="font-semibold mb-2">Select Status:</h3>
+                <div className="space-y-1">
+                  {STATUSES.map((status) => (
+                    <button
+                      key={status.code}
+                      onClick={() => {
+                        setSelectedStatus(status)
+                        setFocusedField('universe')
+                      }}
+                      className={`w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded ${
+                        selectedStatus?.code === status.code ? 'bg-purple-100 dark:bg-purple-900' : ''
+                      }`}
+                    >
+                      <span className="font-mono font-bold text-purple-600">{status.code}</span> - {status.name}
+                      <div className="text-sm text-gray-500">{status.description}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Group Name Input */}
+            {focusedField === 'group' && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 mb-4">
+                <h3 className="font-semibold mb-2">Group Details:</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm text-gray-600">Group Number:</label>
+                    <input
+                      type="text"
+                      value={groupNum}
+                      onChange={(e) => setGroupNum(e.target.value.replace(/\D/g, '').slice(0, 2).padStart(2, '0'))}
+                      className="w-full px-3 py-2 border rounded"
+                      placeholder="01"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-600">Group Name (optional):</label>
+                    <input
+                      type="text"
+                      value={groupName}
+                      onChange={(e) => setGroupName(e.target.value)}
+                      className="w-full px-3 py-2 border rounded"
+                      placeholder="e.g., Q1 Planning, Sprint 3, Phase 1"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          setFocusedField('')
+                        }
+                      }}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Give this group a meaningful name for easier reference</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Universe Selector */}
             {focusedField === 'universe' && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 mb-4">
                 <h3 className="font-semibold mb-2">Select Universe:</h3>
@@ -376,6 +466,7 @@ export default function Home() {
               </div>
             )}
 
+            {/* Phylum Selector */}
             {focusedField === 'phylum' && selectedUniverse && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 mb-4">
                 <h3 className="font-semibold mb-2">Select Phylum:</h3>
@@ -415,6 +506,7 @@ export default function Home() {
               </div>
             )}
 
+            {/* Family Selector */}
             {focusedField === 'family' && selectedPhylum && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 mb-4">
                 <h3 className="font-semibold mb-2">Select Family (Optional):</h3>
@@ -466,7 +558,7 @@ export default function Home() {
             {/* Create Task Button */}
             <button
               onClick={createTask}
-              disabled={!taskName || !selectedUniverse || !selectedPhylum || groupNum === '##' || taskNum === '##'}
+              disabled={!taskName || !selectedStatus || !selectedUniverse || !selectedPhylum || groupNum === '##' || taskNum === '##'}
               className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Create Task
