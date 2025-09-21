@@ -274,7 +274,7 @@ export default function Categories() {
                   onClick={() => setCreatingUniverse(true)}
                   className="w-full p-4 text-left hover:bg-gray-100 dark:hover:bg-gray-800"
                 >
-                  <span className="text-2xl text-gray-400">+ (CREATE)</span>
+                  <span className="text-2xl text-gray-400">+ CREATE</span>
                 </button>
               ) : (
                 <div className="p-4 bg-gray-100 dark:bg-gray-800">
@@ -491,7 +491,7 @@ export default function Categories() {
                       }`}
                     >
                       <span className="text-lg font-mono">
-                        {String(group.number).padStart(2, '0')} - {selectedUniverse?.code.toUpperCase() || ''}{selectedPhylum?.code.toUpperCase() || ''}
+                        {String(group.number).padStart(2, '0')}
                       </span>
                     </div>
                   ))}
@@ -529,7 +529,7 @@ export default function Categories() {
                       }`}
                     >
                       <div className="font-mono text-sm mb-1">
-                        {String(task.task_num).padStart(2, '0')} &quot;{task.title}&quot;
+                        {String(task.task_num).padStart(2, '0')} - &quot;{task.title}&quot;
                       </div>
                     </div>
                   ))}
