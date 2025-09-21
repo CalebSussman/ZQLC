@@ -6,8 +6,13 @@ import { supabase } from '@/lib/supabase'
 import type { Universe, Phylum, Family, Task } from '@/lib/supabase'
 
 interface Group {
-  number: number
-  tasks: Task[]
+  id?: string
+  universe_id: string
+  phylum_id: string
+  family_id?: string
+  group_num: number
+  name: string
+  description?: string
 }
 
 export default function Categories() {
@@ -24,19 +29,32 @@ export default function Categories() {
   const [selectedUniverse, setSelectedUniverse] = useState<Universe | null>(null)
   const [selectedPhylum, setSelectedPhylum] = useState<Phylum | null>(null)
   const [selectedFamily, setSelectedFamily] = useState<Family | null>(null)
-  const [selectedGroup, setSelectedGroup] = useState<number | null>(null)
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   
-  // Creation state
+  // Creation/Edit state
   const [creatingUniverse, setCreatingUniverse] = useState(false)
   const [creatingPhylum, setCreatingPhylum] = useState(false)
   const [creatingFamily, setCreatingFamily] = useState(false)
+  const [creatingGroup, setCreatingGroup] = useState(false)
+  const [editingUniverse, setEditingUniverse] = useState<string | null>(null)
+  const [editingPhylum, setEditingPhylum] = useState<string | null>(null)
+  const [editingFamily, setEditingFamily] = useState<string | null>(null)
+  const [editingGroup, setEditingGroup] = useState<string | null>(null)
+  
+  // Form state
   const [newUniverseName, setNewUniverseName] = useState('')
   const [newUniverseCode, setNewUniverseCode] = useState('')
   const [newPhylumName, setNewPhylumName] = useState('')
   const [newPhylumCode, setNewPhylumCode] = useState('')
   const [newFamilyName, setNewFamilyName] = useState('')
   const [newFamilyCode, setNewFamilyCode] = useState('')
+  const [newGroupName, setNewGroupName] = useState('')
+  const [newGroupNum, setNewGroupNum] = useState('')
+  
+  // Edit form state
+  const [editName, setEditName] = useState('')
+  const [editCode, setEditCode] = useState('')
 
   useEffect(() => {
     loadUniverses()
@@ -66,7 +84,7 @@ export default function Categories() {
   }, [selectedPhylum])
 
   useEffect(() => {
-    if (selectedPhylum && selectedGroup !== null) {
+    if (selectedPhylum && selectedGroup) {
       loadTasks()
     } else {
       setTasks([])
@@ -79,6 +97,7 @@ export default function Categories() {
     const { data } = await supabase
       .from('universes')
       .select('*')
+      .order('display_order')
       .order('code')
     setUniverses(data || [])
   }
@@ -89,6 +108,7 @@ export default function Categories() {
       .from('phyla')
       .select('*')
       .eq('universe_id', selectedUniverse.id)
+      .order('display_order')
       .order('code')
     setPhylums(data || [])
   }
@@ -99,6 +119,7 @@ export default function Categories() {
       .from('families')
       .select('*')
       .eq('phylum_id', selectedPhylum.id)
+      .order('display_order')
       .order('code')
     setFamilies(data || [])
   }
@@ -107,41 +128,30 @@ export default function Categories() {
     if (!selectedPhylum || !selectedUniverse) return
     
     const query = supabase
-      .from('tasks')
-      .select('group_num, id')
+      .from('groups')
+      .select('*')
       .eq('universe_id', selectedUniverse.id)
       .eq('phylum_id', selectedPhylum.id)
     
     if (selectedFamily) {
       query.eq('family_id', selectedFamily.id)
+    } else {
+      query.is('family_id', null)
     }
     
     const { data } = await query.order('group_num')
-    
-    if (data) {
-      const groupMap = new Map<number, number>()
-      data.forEach(task => {
-        groupMap.set(task.group_num, (groupMap.get(task.group_num) || 0) + 1)
-      })
-      
-      const groupList = Array.from(groupMap.entries()).map(([num]) => ({
-        number: num,
-        tasks: []
-      }))
-      
-      setGroups(groupList)
-    }
+    setGroups(data || [])
   }
 
   async function loadTasks() {
-    if (!selectedPhylum || !selectedUniverse || selectedGroup === null) return
+    if (!selectedPhylum || !selectedUniverse || !selectedGroup) return
     
     const query = supabase
       .from('task_details')
       .select('*')
       .eq('universe_id', selectedUniverse.id)
       .eq('phylum_id', selectedPhylum.id)
-      .eq('group_num', selectedGroup)
+      .eq('group_num', selectedGroup.group_num)
     
     if (selectedFamily) {
       query.eq('family_id', selectedFamily.id)
@@ -157,7 +167,7 @@ export default function Categories() {
     const { data } = await supabase
       .from('universes')
       .insert({
-        code: newUniverseCode.toLowerCase().slice(0, 3),
+        code: newUniverseCode.toUpperCase().slice(0, 1),
         name: newUniverseName,
         color: '#' + Math.floor(Math.random()*16777215).toString(16)
       })
@@ -180,7 +190,7 @@ export default function Categories() {
       .from('phyla')
       .insert({
         universe_id: selectedUniverse.id,
-        code: newPhylumCode.toLowerCase().slice(0, 3),
+        code: newPhylumCode.toUpperCase().slice(0, 1),
         name: newPhylumName
       })
       .select()
@@ -202,7 +212,7 @@ export default function Categories() {
       .from('families')
       .insert({
         phylum_id: selectedPhylum.id,
-        code: newFamilyCode.toLowerCase().slice(0, 3),
+        code: newFamilyCode.toUpperCase().slice(0, 1),
         name: newFamilyName
       })
       .select()
@@ -215,6 +225,74 @@ export default function Categories() {
       setNewFamilyCode('')
       setCreatingFamily(false)
     }
+  }
+
+  async function createGroup() {
+    if (!newGroupName || !newGroupNum || !selectedPhylum || !selectedUniverse) return
+    
+    const { data } = await supabase
+      .from('groups')
+      .insert({
+        universe_id: selectedUniverse.id,
+        phylum_id: selectedPhylum.id,
+        family_id: selectedFamily?.id || null,
+        group_num: parseInt(newGroupNum),
+        name: newGroupName
+      })
+      .select()
+      .single()
+    
+    if (data) {
+      setGroups([...groups, data])
+      setSelectedGroup(data)
+      setNewGroupName('')
+      setNewGroupNum('')
+      setCreatingGroup(false)
+    }
+  }
+
+  async function updateCategory(type: 'universe' | 'phylum' | 'family' | 'group', id: string) {
+    const table = type === 'group' ? 'groups' : type === 'universe' ? 'universes' : type === 'phylum' ? 'phyla' : 'families'
+    
+    const updateData: any = { name: editName }
+    if (type !== 'group') {
+      updateData.code = editCode.toUpperCase().slice(0, 1)
+    }
+    
+    const { data } = await supabase
+      .from(table)
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single()
+    
+    if (data) {
+      if (type === 'universe') {
+        setUniverses(universes.map(u => u.id === id ? data : u))
+        setEditingUniverse(null)
+      } else if (type === 'phylum') {
+        setPhylums(phylums.map(p => p.id === id ? data : p))
+        setEditingPhylum(null)
+      } else if (type === 'family') {
+        setFamilies(families.map(f => f.id === id ? data : f))
+        setEditingFamily(null)
+      } else if (type === 'group') {
+        loadGroups()
+        setEditingGroup(null)
+      }
+      setEditName('')
+      setEditCode('')
+    }
+  }
+
+  function startEdit(type: 'universe' | 'phylum' | 'family' | 'group', item: any) {
+    setEditName(item.name)
+    setEditCode(item.code || '')
+    
+    if (type === 'universe') setEditingUniverse(item.id)
+    else if (type === 'phylum') setEditingPhylum(item.id)
+    else if (type === 'family') setEditingFamily(item.id)
+    else if (type === 'group') setEditingGroup(item.id)
   }
 
   return (
@@ -254,17 +332,62 @@ export default function Categories() {
               {universes.map((universe) => (
                 <div
                   key={universe.id}
-                  onClick={() => setSelectedUniverse(universe)}
+                  onClick={() => editingUniverse !== universe.id && setSelectedUniverse(universe)}
                   className={`p-4 cursor-pointer border-b hover:bg-gray-100 dark:hover:bg-gray-800 ${
                     selectedUniverse?.id === universe.id 
                       ? 'bg-yellow-100 dark:bg-yellow-900/20' 
                       : ''
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl font-bold">{universe.code.toUpperCase()}</span>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">({universe.name})</span>
-                  </div>
+                  {editingUniverse === universe.id ? (
+                    <div className="space-y-2" onClick={e => e.stopPropagation()}>
+                      <input
+                        type="text"
+                        value={editCode}
+                        onChange={(e) => setEditCode(e.target.value.toUpperCase().slice(0, 1))}
+                        className="w-12 px-2 py-1 bg-white dark:bg-gray-700 rounded"
+                        placeholder="Code"
+                        maxLength={1}
+                      />
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full px-2 py-1 bg-white dark:bg-gray-700 rounded"
+                        placeholder="Name"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => updateCategory('universe', universe.id)}
+                          className="px-2 py-1 bg-blue-600 text-white rounded text-sm"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingUniverse(null)}
+                          className="px-2 py-1 bg-gray-400 text-white rounded text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl font-bold">{universe.code.toUpperCase()}</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">({universe.name})</span>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          startEdit('universe', universe)
+                        }}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        ✏️
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
               
@@ -280,11 +403,11 @@ export default function Categories() {
                 <div className="p-4 bg-gray-100 dark:bg-gray-800">
                   <input
                     type="text"
-                    placeholder="Code (3 letters)"
+                    placeholder="Code (1 letter)"
                     value={newUniverseCode}
-                    onChange={(e) => setNewUniverseCode(e.target.value.toUpperCase().slice(0, 3))}
+                    onChange={(e) => setNewUniverseCode(e.target.value.toUpperCase().slice(0, 1))}
                     className="w-full mb-2 px-2 py-1 bg-white dark:bg-gray-700 rounded"
-                    maxLength={3}
+                    maxLength={1}
                   />
                   <input
                     type="text"
@@ -327,17 +450,62 @@ export default function Categories() {
                   {phylums.map((phylum) => (
                     <div
                       key={phylum.id}
-                      onClick={() => setSelectedPhylum(phylum)}
+                      onClick={() => editingPhylum !== phylum.id && setSelectedPhylum(phylum)}
                       className={`p-4 cursor-pointer border-b hover:bg-gray-100 dark:hover:bg-gray-800 ${
                         selectedPhylum?.id === phylum.id 
                           ? 'bg-yellow-100 dark:bg-yellow-900/20' 
                           : ''
                       }`}
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl font-bold">{phylum.code.toUpperCase()}</span>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">({phylum.name})</span>
-                      </div>
+                      {editingPhylum === phylum.id ? (
+                        <div className="space-y-2" onClick={e => e.stopPropagation()}>
+                          <input
+                            type="text"
+                            value={editCode}
+                            onChange={(e) => setEditCode(e.target.value.toUpperCase().slice(0, 1))}
+                            className="w-12 px-2 py-1 bg-white dark:bg-gray-700 rounded"
+                            placeholder="Code"
+                            maxLength={1}
+                          />
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="w-full px-2 py-1 bg-white dark:bg-gray-700 rounded"
+                            placeholder="Name"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => updateCategory('phylum', phylum.id)}
+                              className="px-2 py-1 bg-blue-600 text-white rounded text-sm"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingPhylum(null)}
+                              className="px-2 py-1 bg-gray-400 text-white rounded text-sm"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl font-bold">{phylum.code.toUpperCase()}</span>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">({phylum.name})</span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              startEdit('phylum', phylum)
+                            }}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            ✏️
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                   
@@ -352,11 +520,11 @@ export default function Categories() {
                     <div className="p-4 bg-gray-100 dark:bg-gray-800">
                       <input
                         type="text"
-                        placeholder="Code (3 letters)"
+                        placeholder="Code (1 letter)"
                         value={newPhylumCode}
-                        onChange={(e) => setNewPhylumCode(e.target.value.toUpperCase().slice(0, 3))}
+                        onChange={(e) => setNewPhylumCode(e.target.value.toUpperCase().slice(0, 1))}
                         className="w-full mb-2 px-2 py-1 bg-white dark:bg-gray-700 rounded"
-                        maxLength={3}
+                        maxLength={1}
                       />
                       <input
                         type="text"
@@ -405,17 +573,62 @@ export default function Categories() {
                   {families.map((family) => (
                     <div
                       key={family.id}
-                      onClick={() => setSelectedFamily(family)}
+                      onClick={() => editingFamily !== family.id && setSelectedFamily(family)}
                       className={`p-4 cursor-pointer border-b hover:bg-gray-100 dark:hover:bg-gray-800 ${
                         selectedFamily?.id === family.id 
                           ? 'bg-yellow-100 dark:bg-yellow-900/20' 
                           : ''
                       }`}
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold">{family.code.toUpperCase()}</span>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">({family.name})</span>
-                      </div>
+                      {editingFamily === family.id ? (
+                        <div className="space-y-2" onClick={e => e.stopPropagation()}>
+                          <input
+                            type="text"
+                            value={editCode}
+                            onChange={(e) => setEditCode(e.target.value.toUpperCase().slice(0, 1))}
+                            className="w-12 px-2 py-1 bg-white dark:bg-gray-700 rounded"
+                            placeholder="Code"
+                            maxLength={1}
+                          />
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="w-full px-2 py-1 bg-white dark:bg-gray-700 rounded"
+                            placeholder="Name"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => updateCategory('family', family.id)}
+                              className="px-2 py-1 bg-blue-600 text-white rounded text-sm"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingFamily(null)}
+                              className="px-2 py-1 bg-gray-400 text-white rounded text-sm"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg font-bold">{family.code.toUpperCase()}</span>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">({family.name})</span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              startEdit('family', family)
+                            }}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            ✏️
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                   
@@ -430,11 +643,11 @@ export default function Categories() {
                     <div className="p-4 bg-gray-100 dark:bg-gray-800">
                       <input
                         type="text"
-                        placeholder="Code (3 letters)"
+                        placeholder="Code (1 letter)"
                         value={newFamilyCode}
-                        onChange={(e) => setNewFamilyCode(e.target.value.toUpperCase().slice(0, 3))}
+                        onChange={(e) => setNewFamilyCode(e.target.value.toUpperCase().slice(0, 1))}
                         className="w-full mb-2 px-2 py-1 bg-white dark:bg-gray-700 rounded"
-                        maxLength={3}
+                        maxLength={1}
                       />
                       <input
                         type="text"
@@ -482,25 +695,103 @@ export default function Categories() {
                 <>
                   {groups.map((group) => (
                     <div
-                      key={group.number}
-                      onClick={() => setSelectedGroup(group.number)}
+                      key={group.id || group.group_num}
+                      onClick={() => editingGroup !== group.id && setSelectedGroup(group)}
                       className={`p-4 cursor-pointer border-b hover:bg-gray-100 dark:hover:bg-gray-800 ${
-                        selectedGroup === group.number 
+                        selectedGroup?.group_num === group.group_num 
                           ? 'bg-yellow-100 dark:bg-yellow-900/20' 
                           : ''
                       }`}
                     >
-                      <span className="text-lg font-mono">
-                        {String(group.number).padStart(2, '0')}
-                      </span>
+                      {editingGroup === group.id ? (
+                        <div className="space-y-2" onClick={e => e.stopPropagation()}>
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="w-full px-2 py-1 bg-white dark:bg-gray-700 rounded"
+                            placeholder="Group Name"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => updateCategory('group', group.id!)}
+                              className="px-2 py-1 bg-blue-600 text-white rounded text-sm"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingGroup(null)}
+                              className="px-2 py-1 bg-gray-400 text-white rounded text-sm"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <span className="text-lg font-mono">
+                            {String(group.group_num).padStart(2, '0')} - {group.name}
+                          </span>
+                          {group.id && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                startEdit('group', group)
+                              }}
+                              className="text-gray-400 hover:text-gray-600"
+                            >
+                              ✏️
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
-                  <button
-                    onClick={() => router.push('/new')}
-                    className="w-full p-4 text-left hover:bg-gray-100 dark:hover:bg-gray-800"
-                  >
-                    <span className="text-lg text-gray-400">+ CREATE</span>
-                  </button>
+                  
+                  {!creatingGroup ? (
+                    <button
+                      onClick={() => setCreatingGroup(true)}
+                      className="w-full p-4 text-left hover:bg-gray-100 dark:hover:bg-gray-800"
+                    >
+                      <span className="text-lg text-gray-400">+ CREATE</span>
+                    </button>
+                  ) : (
+                    <div className="p-4 bg-gray-100 dark:bg-gray-800">
+                      <input
+                        type="text"
+                        placeholder="Group Number"
+                        value={newGroupNum}
+                        onChange={(e) => setNewGroupNum(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                        className="w-full mb-2 px-2 py-1 bg-white dark:bg-gray-700 rounded"
+                        maxLength={2}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Group Name"
+                        value={newGroupName}
+                        onChange={(e) => setNewGroupName(e.target.value)}
+                        className="w-full mb-2 px-2 py-1 bg-white dark:bg-gray-700 rounded"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={createGroup}
+                          className="px-3 py-1 bg-blue-600 text-white rounded"
+                        >
+                          Create
+                        </button>
+                        <button
+                          onClick={() => {
+                            setCreatingGroup(false)
+                            setNewGroupName('')
+                            setNewGroupNum('')
+                          }}
+                          className="px-3 py-1 bg-gray-400 text-white rounded"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="p-4 text-gray-400 text-center">
@@ -516,20 +807,27 @@ export default function Categories() {
               <h2 className="font-bold text-blue-600 dark:text-blue-400">TASK</h2>
             </div>
             <div className="h-full overflow-y-auto">
-              {selectedGroup !== null ? (
+              {selectedGroup ? (
                 <>
                   {tasks.map((task) => (
                     <div
                       key={task.id}
-                      onClick={() => router.push(`/t/${task.code}`)}
+                      onClick={() => router.push(`/t/${task.base_code || task.code}`)}
                       className={`p-4 cursor-pointer border-b hover:bg-gray-100 dark:hover:bg-gray-800 ${
                         selectedTask?.id === task.id 
                           ? 'bg-yellow-100 dark:bg-yellow-900/20' 
                           : ''
                       }`}
                     >
-                      <div className="font-mono text-sm mb-1">
-                        {String(task.task_num).padStart(2, '0')} - &quot;{task.title}&quot;
+                      <div>
+                        <div className="font-mono text-sm mb-1">
+                          {String(task.task_num).padStart(2, '0')} - &quot;{task.title}&quot;
+                        </div>
+                        {task.current_status && (
+                          <div className="text-xs text-gray-500">
+                            Status: {task.current_status_name}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
