@@ -97,7 +97,7 @@ export default function TaskPage() {
     if (!task) return
     
     const newStatus = task.status === 'active' ? 'completed' : 'active'
-    const completedAt = newStatus === 'completed' ? new Date().toISOString() : null
+    const completedAt = newStatus === 'completed' ? new Date().toISOString() : undefined
     
     try {
       const { error } = await supabase
@@ -292,11 +292,11 @@ export default function TaskPage() {
         ) : (
           <div className="space-y-4">
             {notes.map((note) => (
-              <div key={note.id} className="border-l-4 pl-4 py-2 ${
+              <div key={note.id} className={`border-l-4 pl-4 py-2 ${
                 note.type === 'task' ? 'border-blue-500' :
                 note.type === 'step' ? 'border-yellow-500' :
                 'border-green-500'
-              }">
+              }`}>
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`text-xs px-2 py-1 rounded ${
                     note.type === 'task' ? 'bg-blue-100 text-blue-800' :
