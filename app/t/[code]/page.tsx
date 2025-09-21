@@ -143,7 +143,7 @@ export default function TaskPage() {
     return (
       <div className="text-center py-12">
         <h2 className="text-2xl font-bold mb-4">Task Not Found</h2>
-        <p className="text-gray-500 mb-6">The task code "{taskCode}" doesn't exist.</p>
+        <p className="text-gray-500 mb-6">The task code &quot;{taskCode}&quot; doesn&apos;t exist.</p>
         <a href="/" className="text-blue-600 hover:text-blue-700">← Back to Dashboard</a>
       </div>
     )
