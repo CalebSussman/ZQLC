@@ -61,6 +61,7 @@ export default function Home() {
     if (selectedUniverse && selectedPhylum) {
       generateNextNumbers()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUniverse, selectedPhylum])
 
   async function loadData() {
