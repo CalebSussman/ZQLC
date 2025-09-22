@@ -41,9 +41,14 @@ export default function BrowsePage() {
   const [creatingFamily, setCreatingFamily] = useState(false)
   const [creatingGroup, setCreatingGroup] = useState(false)
 
-  // Form state
-  const [newCode, setNewCode] = useState('')
-  const [newName, setNewName] = useState('')
+  // Form state - separate for each entity type
+  const [universeCode, setUniverseCode] = useState('')
+  const [universeName, setUniverseName] = useState('')
+  const [phylumCode, setPhylumCode] = useState('')
+  const [phylumName, setPhylumName] = useState('')
+  const [familyCode, setFamilyCode] = useState('')
+  const [familyName, setFamilyName] = useState('')
+  const [groupName, setGroupName] = useState('')
   const [newGroupNum, setNewGroupNum] = useState('')
 
   // Edit state
@@ -182,13 +187,13 @@ export default function BrowsePage() {
   }
 
   async function createUniverse() {
-    if (!newCode || !newName) return
+    if (!universeCode || !universeName) return
     try {
       const { data } = await supabase
         .from('universes')
         .insert({
-          code: newCode.toUpperCase().slice(0, 1),
-          name: newName,
+          code: universeCode.toUpperCase().slice(0, 1),
+          name: universeName,
           color: '#' + Math.floor(Math.random()*16777215).toString(16),
           display_order: universes.length + 1
         })
@@ -198,8 +203,8 @@ export default function BrowsePage() {
       if (data) {
         setUniverses([...universes, data])
         setCreatingUniverse(false)
-        setNewCode('')
-        setNewName('')
+        setUniverseCode('')
+        setUniverseName('')
       }
     } catch (error) {
       console.error('Error creating universe:', error)
@@ -207,14 +212,14 @@ export default function BrowsePage() {
   }
 
   async function createPhylum() {
-    if (!newCode || !newName || !selectedUniverse) return
+    if (!phylumCode || !phylumName || !selectedUniverse) return
     try {
       const { data } = await supabase
         .from('phyla')
         .insert({
           universe_id: selectedUniverse.id,
-          code: newCode.toUpperCase().slice(0, 1),
-          name: newName
+          code: phylumCode.toUpperCase().slice(0, 1),
+          name: phylumName
         })
         .select()
         .single()
@@ -222,8 +227,8 @@ export default function BrowsePage() {
       if (data) {
         setPhylums([...phylums, data])
         setCreatingPhylum(false)
-        setNewCode('')
-        setNewName('')
+        setPhylumCode('')
+        setPhylumName('')
       }
     } catch (error) {
       console.error('Error creating phylum:', error)
@@ -231,14 +236,14 @@ export default function BrowsePage() {
   }
 
   async function createFamily() {
-    if (!newCode || !newName || !selectedPhylum) return
+    if (!familyCode || !familyName || !selectedPhylum) return
     try {
       const { data } = await supabase
         .from('families')
         .insert({
           phylum_id: selectedPhylum.id,
-          code: newCode.toUpperCase().slice(0, 1),
-          name: newName
+          code: familyCode.toUpperCase().slice(0, 1),
+          name: familyName
         })
         .select()
         .single()
@@ -246,8 +251,8 @@ export default function BrowsePage() {
       if (data) {
         setFamilies([...families, data])
         setCreatingFamily(false)
-        setNewCode('')
-        setNewName('')
+        setFamilyCode('')
+        setFamilyName('')
       }
     } catch (error) {
       console.error('Error creating family:', error)
@@ -255,7 +260,7 @@ export default function BrowsePage() {
   }
 
   async function createGroup() {
-    if (!newGroupNum || !newName || !selectedPhylum || !selectedUniverse) return
+    if (!newGroupNum || !groupName || !selectedPhylum || !selectedUniverse) return
     try {
       await supabase
         .from('groups')
@@ -264,13 +269,13 @@ export default function BrowsePage() {
           phylum_id: selectedPhylum.id,
           family_id: selectedFamily?.id || null,
           group_num: parseInt(newGroupNum),
-          name: newName
+          name: groupName
         })
 
       loadGroups()
       setCreatingGroup(false)
       setNewGroupNum('')
-      setNewName('')
+      setGroupName('')
     } catch (error) {
       console.error('Error creating group:', error)
     }
@@ -866,16 +871,16 @@ export default function BrowsePage() {
               <input
                 type="text"
                 placeholder="Code"
-                value={newCode}
-                onChange={(e) => setNewCode(e.target.value.toUpperCase().slice(0, 1))}
+                value={universeCode}
+                onChange={(e) => setUniverseCode(e.target.value.toUpperCase().slice(0, 1))}
                 className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
                 maxLength={1}
               />
               <input
                 type="text"
                 placeholder="Name"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
+                value={universeName}
+                onChange={(e) => setUniverseName(e.target.value)}
                 className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
               />
               <div className="flex gap-2">
@@ -970,16 +975,16 @@ export default function BrowsePage() {
                   <input
                     type="text"
                     placeholder="Code"
-                    value={newCode}
-                    onChange={(e) => setNewCode(e.target.value.toUpperCase().slice(0, 1))}
+                    value={phylumCode}
+                    onChange={(e) => setPhylumCode(e.target.value.toUpperCase().slice(0, 1))}
                     className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
                     maxLength={1}
                   />
                   <input
                     type="text"
                     placeholder="Name"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
+                    value={phylumName}
+                    onChange={(e) => setPhylumName(e.target.value)}
                     className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
                   />
                   <div className="flex gap-2">
@@ -1078,16 +1083,16 @@ export default function BrowsePage() {
                   <input
                     type="text"
                     placeholder="Code"
-                    value={newCode}
-                    onChange={(e) => setNewCode(e.target.value.toUpperCase().slice(0, 1))}
+                    value={familyCode}
+                    onChange={(e) => setFamilyCode(e.target.value.toUpperCase().slice(0, 1))}
                     className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
                     maxLength={1}
                   />
                   <input
                     type="text"
                     placeholder="Name"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
+                    value={familyName}
+                    onChange={(e) => setFamilyName(e.target.value)}
                     className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
                   />
                   <div className="flex gap-2">
@@ -1187,8 +1192,8 @@ export default function BrowsePage() {
                   <input
                     type="text"
                     placeholder="Name"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
+                    value={groupName}
+                    onChange={(e) => setGroupName(e.target.value)}
                     className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
                   />
                   <div className="flex gap-2">
