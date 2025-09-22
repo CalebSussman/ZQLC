@@ -231,16 +231,21 @@ export default function BrowsePage() {
 
       if (data) {
         console.log('Current universes before update:', universes.length, universes)
-        const newUniverses = [...universes, data]
-        console.log('New universes array:', newUniverses.length, newUniverses)
-        setUniverses(newUniverses)
+
+        // Use functional state update to ensure React detects the change
+        setUniverses(prevUniverses => {
+          const newUniverses = [...prevUniverses, data]
+          console.log('New universes array:', newUniverses.length, newUniverses)
+          return newUniverses
+        })
+
         setCreatingUniverse(false)
         setUniverseCode('')
         setUniverseName('')
         console.log('Universe created successfully:', data)
         console.log('State updates called - universe should appear in UI')
 
-        // Also reload universes from database to make sure we're in sync
+        // Force a re-render by reloading from database
         setTimeout(() => {
           console.log('Reloading universes from database...')
           loadUniverses()
@@ -916,29 +921,47 @@ export default function BrowsePage() {
               + CREATE
             </button>
           ) : (
-            <div className="p-4 bg-gray-100 dark:bg-gray-800">
-              <input
-                type="text"
-                placeholder="Code"
-                value={universeCode}
-                onChange={(e) => setUniverseCode(e.target.value.toUpperCase().slice(0, 1))}
-                className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
-                maxLength={1}
-              />
-              <input
-                type="text"
-                placeholder="Name"
-                value={universeName}
-                onChange={(e) => setUniverseName(e.target.value)}
-                className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
-              />
-              <div className="flex gap-2">
-                <button onClick={() => {
-                  console.log('Create button clicked')
-                  console.log('Current state:', { universeCode, universeName })
-                  createUniverse()
-                }} className="px-3 py-1 bg-blue-600 text-white rounded">Create</button>
-                <button onClick={() => setCreatingUniverse(false)} className="px-3 py-1 bg-gray-400 text-white rounded">Cancel</button>
+            <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={universeCode}
+                    onChange={(e) => setUniverseCode(e.target.value.toUpperCase().slice(0, 1))}
+                    className="w-12 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded text-center"
+                    maxLength={1}
+                    placeholder="C"
+                  />
+                  <input
+                    type="text"
+                    value={universeName}
+                    onChange={(e) => setUniverseName(e.target.value)}
+                    className="flex-1 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
+                    placeholder="Name"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      console.log('Create button clicked')
+                      console.log('Current state:', { universeCode, universeName })
+                      createUniverse()
+                    }}
+                    className="px-3 py-1 bg-green-600 text-white rounded text-xs"
+                  >
+                    Create
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCreatingUniverse(false)
+                      setUniverseCode('')
+                      setUniverseName('')
+                    }}
+                    className="px-3 py-1 bg-gray-400 text-white rounded text-xs"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
           )}
