@@ -43,11 +43,12 @@ export default function TodoPage() {
   }, [])
 
   useEffect(() => {
-    if (currentCard) {
-      loadCardTasks()
-      calculateDayCount()
-    }
-  }, [currentCard])
+  if (currentCard) {
+    loadCardTasks()
+    calculateDayCount()
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [currentCard])
 
   async function loadCurrentCard() {
     const { data } = await supabase
