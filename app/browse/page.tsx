@@ -46,6 +46,13 @@ export default function BrowsePage() {
   const [newName, setNewName] = useState('')
   const [newGroupNum, setNewGroupNum] = useState('')
 
+  // Edit state
+  const [editingItem, setEditingItem] = useState<'universe' | 'phylum' | 'family' | 'group' | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editCode, setEditCode] = useState('')
+  const [editError, setEditError] = useState('')
+
   // Load functions
   const loadUniverses = useCallback(async () => {
     try {
@@ -182,7 +189,8 @@ export default function BrowsePage() {
         .insert({
           code: newCode.toUpperCase().slice(0, 1),
           name: newName,
-          color: '#' + Math.floor(Math.random()*16777215).toString(16)
+          color: '#' + Math.floor(Math.random()*16777215).toString(16),
+          display_order: universes.length + 1
         })
         .select()
         .single()
@@ -268,6 +276,156 @@ export default function BrowsePage() {
     }
   }
 
+  // Update functions
+  async function updateUniverse(id: string, code: string, name: string) {
+    try {
+      const { error } = await supabase
+        .from('universes')
+        .update({ code: code.toUpperCase().slice(0, 1), name })
+        .eq('id', id)
+
+      if (error) throw error
+
+      setUniverses(universes.map(u => u.id === id ? { ...u, code: code.toUpperCase().slice(0, 1), name } : u))
+      setEditingItem(null)
+      setEditingId(null)
+      setEditName('')
+      setEditCode('')
+    } catch (error) {
+      console.error('Error updating universe:', error)
+      alert('Failed to update universe')
+    }
+  }
+
+  async function updatePhylum(id: string, code: string, name: string) {
+    try {
+      const { error } = await supabase
+        .from('phyla')
+        .update({ code: code.toUpperCase().slice(0, 1), name })
+        .eq('id', id)
+
+      if (error) throw error
+
+      setPhylums(phylums.map(p => p.id === id ? { ...p, code: code.toUpperCase().slice(0, 1), name } : p))
+      setEditingItem(null)
+      setEditingId(null)
+      setEditName('')
+      setEditCode('')
+    } catch (error) {
+      console.error('Error updating phylum:', error)
+      alert('Failed to update phylum')
+    }
+  }
+
+  async function updateFamily(id: string, code: string, name: string) {
+    try {
+      const { error } = await supabase
+        .from('families')
+        .update({ code: code.toUpperCase().slice(0, 1), name })
+        .eq('id', id)
+
+      if (error) throw error
+
+      setFamilies(families.map(f => f.id === id ? { ...f, code: code.toUpperCase().slice(0, 1), name } : f))
+      setEditingItem(null)
+      setEditingId(null)
+      setEditName('')
+      setEditCode('')
+    } catch (error) {
+      console.error('Error updating family:', error)
+      alert('Failed to update family')
+    }
+  }
+
+  async function updateGroup(id: string, name: string) {
+    try {
+      const { error } = await supabase
+        .from('groups')
+        .update({ name })
+        .eq('id', id)
+
+      if (error) throw error
+
+      setGroups(groups.map(g => g.id === id ? { ...g, name } : g))
+      setEditingItem(null)
+      setEditingId(null)
+      setEditName('')
+      setEditCode('')
+    } catch (error) {
+      console.error('Error updating group:', error)
+      alert('Failed to update group')
+    }
+  }
+
+  // Edit helper functions
+  const startEdit = (type: 'universe' | 'phylum' | 'family' | 'group', id: string, currentCode: string, currentName: string) => {
+    setEditingItem(type)
+    setEditingId(id)
+    setEditCode(currentCode)
+    setEditName(currentName)
+  }
+
+  const cancelEdit = () => {
+    setEditingItem(null)
+    setEditingId(null)
+    setEditName('')
+    setEditCode('')
+    setEditError('')
+  }
+
+  const saveEdit = async () => {
+    if (!editingItem || !editingId) return
+
+    setEditError('')
+
+    // Validation
+    if (!editName.trim()) {
+      setEditError('Name is required')
+      return
+    }
+
+    if (editingItem !== 'group' && !editCode.trim()) {
+      setEditError('Code is required')
+      return
+    }
+
+    // Check for duplicate codes
+    if (editingItem !== 'group') {
+      const isDuplicate = (() => {
+        switch (editingItem) {
+          case 'universe':
+            return universes.some(u => u.id !== editingId && u.code.toLowerCase() === editCode.toLowerCase())
+          case 'phylum':
+            return phylums.some(p => p.id !== editingId && p.code.toLowerCase() === editCode.toLowerCase())
+          case 'family':
+            return families.some(f => f.id !== editingId && f.code.toLowerCase() === editCode.toLowerCase())
+          default:
+            return false
+        }
+      })()
+
+      if (isDuplicate) {
+        setEditError(`Code "${editCode}" already exists`)
+        return
+      }
+    }
+
+    switch (editingItem) {
+      case 'universe':
+        await updateUniverse(editingId, editCode, editName)
+        break
+      case 'phylum':
+        await updatePhylum(editingId, editCode, editName)
+        break
+      case 'family':
+        await updateFamily(editingId, editCode, editName)
+        break
+      case 'group':
+        await updateGroup(editingId, editName)
+        break
+    }
+  }
+
   // Column component for desktop
   const Column = ({ title, color, children }: { title: string; color: string; children: React.ReactNode }) => (
     <div className="flex-1 flex flex-col h-full border-r border-gray-300 dark:border-gray-700 last:border-r-0">
@@ -306,21 +464,75 @@ export default function BrowsePage() {
           {mobileTab === 'UNI' && (
             <div className="space-y-2">
               {universes.map((universe) => (
-                <button
-                  key={universe.id}
-                  onClick={() => setSelectedUniverse(universe)}
-                  className={`w-full text-left p-4 rounded-lg font-mono ${
-                    selectedUniverse?.id === universe.id
-                      ? 'bg-yellow-100 dark:bg-yellow-900/20 ring-2 ring-yellow-500'
-                      : 'bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800'
-                  }`}
-                >
-                  <span className="text-xl font-bold">{universe.code}</span>
-                  <span className="ml-2 text-gray-600 dark:text-gray-400">{universe.name}</span>
-                  <div className="mt-1 h-2 bg-gray-200 dark:bg-gray-700 rounded">
-                    <div className="h-full bg-yellow-500 rounded" style={{ width: '60%' }} />
-                  </div>
-                </button>
+                <div key={universe.id} className="relative">
+                  {editingItem === 'universe' && editingId === universe.id ? (
+                    <div className="p-4 bg-white dark:bg-gray-900 rounded-lg space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={editCode}
+                          onChange={(e) => setEditCode(e.target.value.toUpperCase().slice(0, 1))}
+                          className="w-12 px-2 py-1 font-mono bg-gray-100 dark:bg-gray-700 rounded text-center"
+                          maxLength={1}
+                          placeholder="C"
+                        />
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="flex-1 px-2 py-1 font-mono bg-gray-100 dark:bg-gray-700 rounded"
+                          placeholder="Name"
+                        />
+                      </div>
+                      {editError && (
+                        <div className="text-red-600 text-xs">{editError}</div>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={saveEdit}
+                          className="px-3 py-1 bg-green-600 text-white rounded text-sm"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="px-3 py-1 bg-gray-400 text-white rounded text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className={`p-4 rounded-lg font-mono ${
+                        selectedUniverse?.id === universe.id
+                          ? 'bg-yellow-100 dark:bg-yellow-900/20 ring-2 ring-yellow-500'
+                          : 'bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      <div
+                        onClick={() => setSelectedUniverse(universe)}
+                        className="cursor-pointer"
+                      >
+                        <span className="text-xl font-bold">{universe.code}</span>
+                        <span className="ml-2 text-gray-600 dark:text-gray-400">{universe.name}</span>
+                        <div className="mt-1 h-2 bg-gray-200 dark:bg-gray-700 rounded">
+                          <div className="h-full bg-yellow-500 rounded" style={{ width: '60%' }} />
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          startEdit('universe', universe.id, universe.code, universe.name)
+                        }}
+                        className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-600"
+                        title="Edit"
+                      >
+                        ∴
+                      </button>
+                    </div>
+                  )}
+                </div>
               ))}
               <button
                 onClick={() => setCreatingUniverse(true)}
@@ -334,23 +546,232 @@ export default function BrowsePage() {
           {mobileTab === 'PHY' && selectedUniverse && (
             <div className="space-y-2">
               {phylums.map((phylum) => (
-                <button
-                  key={phylum.id}
-                  onClick={() => setSelectedPhylum(phylum)}
-                  className={`w-full text-left p-4 rounded-lg font-mono ${
-                    selectedPhylum?.id === phylum.id
-                      ? 'bg-yellow-100 dark:bg-yellow-900/20 ring-2 ring-yellow-500'
-                      : 'bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800'
-                  }`}
-                >
-                  <span className="text-xl font-bold">{phylum.code}</span>
-                  <span className="ml-2 text-gray-600 dark:text-gray-400">{phylum.name}</span>
-                </button>
+                <div key={phylum.id} className="relative">
+                  {editingItem === 'phylum' && editingId === phylum.id ? (
+                    <div className="p-4 bg-white dark:bg-gray-900 rounded-lg space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={editCode}
+                          onChange={(e) => setEditCode(e.target.value.toUpperCase().slice(0, 1))}
+                          className="w-12 px-2 py-1 font-mono bg-gray-100 dark:bg-gray-700 rounded text-center"
+                          maxLength={1}
+                          placeholder="C"
+                        />
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="flex-1 px-2 py-1 font-mono bg-gray-100 dark:bg-gray-700 rounded"
+                          placeholder="Name"
+                        />
+                      </div>
+                      {editError && (
+                        <div className="text-red-600 text-xs">{editError}</div>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={saveEdit}
+                          className="px-3 py-1 bg-green-600 text-white rounded text-sm"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="px-3 py-1 bg-gray-400 text-white rounded text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className={`p-4 rounded-lg font-mono ${
+                        selectedPhylum?.id === phylum.id
+                          ? 'bg-yellow-100 dark:bg-yellow-900/20 ring-2 ring-yellow-500'
+                          : 'bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      <div
+                        onClick={() => setSelectedPhylum(phylum)}
+                        className="cursor-pointer"
+                      >
+                        <span className="text-xl font-bold">{phylum.code}</span>
+                        <span className="ml-2 text-gray-600 dark:text-gray-400">{phylum.name}</span>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          startEdit('phylum', phylum.id, phylum.code, phylum.name)
+                        }}
+                        className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-600"
+                        title="Edit"
+                      >
+                        ∴
+                      </button>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}
 
-          {/* Similar patterns for FAM, GRP, TSK tabs would go here */}
+          {mobileTab === 'FAM' && selectedPhylum && (
+            <div className="space-y-2">
+              {families.map((family) => (
+                <div key={family.id} className="relative">
+                  {editingItem === 'family' && editingId === family.id ? (
+                    <div className="p-4 bg-white dark:bg-gray-900 rounded-lg space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={editCode}
+                          onChange={(e) => setEditCode(e.target.value.toUpperCase().slice(0, 1))}
+                          className="w-12 px-2 py-1 font-mono bg-gray-100 dark:bg-gray-700 rounded text-center"
+                          maxLength={1}
+                          placeholder="C"
+                        />
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="flex-1 px-2 py-1 font-mono bg-gray-100 dark:bg-gray-700 rounded"
+                          placeholder="Name"
+                        />
+                      </div>
+                      {editError && (
+                        <div className="text-red-600 text-xs">{editError}</div>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={saveEdit}
+                          className="px-3 py-1 bg-green-600 text-white rounded text-sm"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="px-3 py-1 bg-gray-400 text-white rounded text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className={`p-4 rounded-lg font-mono ${
+                        selectedFamily?.id === family.id
+                          ? 'bg-yellow-100 dark:bg-yellow-900/20 ring-2 ring-yellow-500'
+                          : 'bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      <div
+                        onClick={() => setSelectedFamily(family)}
+                        className="cursor-pointer"
+                      >
+                        <span className="text-xl font-bold">{family.code}</span>
+                        <span className="ml-2 text-gray-600 dark:text-gray-400">{family.name}</span>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          startEdit('family', family.id, family.code, family.name)
+                        }}
+                        className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-600"
+                        title="Edit"
+                      >
+                        ∴
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {mobileTab === 'GRP' && selectedPhylum && (
+            <div className="space-y-2">
+              {groups.map((group) => (
+                <div key={group.group_num} className="relative">
+                  {editingItem === 'group' && editingId === group.id ? (
+                    <div className="p-4 bg-white dark:bg-gray-900 rounded-lg space-y-2">
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full px-2 py-1 font-mono bg-gray-100 dark:bg-gray-700 rounded"
+                        placeholder="Group name"
+                      />
+                      {editError && (
+                        <div className="text-red-600 text-xs">{editError}</div>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={saveEdit}
+                          className="px-3 py-1 bg-green-600 text-white rounded text-sm"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="px-3 py-1 bg-gray-400 text-white rounded text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className={`p-4 rounded-lg font-mono ${
+                        selectedGroup?.group_num === group.group_num
+                          ? 'bg-yellow-100 dark:bg-yellow-900/20 ring-2 ring-yellow-500'
+                          : 'bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      <div
+                        onClick={() => setSelectedGroup(group)}
+                        className="cursor-pointer"
+                      >
+                        <div className="font-bold">{String(group.group_num).padStart(2, '0')}</div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">{group.name}</div>
+                        {group.task_count !== undefined && (
+                          <div className="text-xs text-gray-500 mt-1">{group.task_count} tasks</div>
+                        )}
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          startEdit('group', group.id || String(group.group_num), '', group.name)
+                        }}
+                        className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-600"
+                        title="Edit"
+                      >
+                        ∴
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {mobileTab === 'TSK' && selectedGroup && (
+            <div className="space-y-2">
+              {tasks.map((task) => (
+                <div
+                  key={task.id}
+                  onClick={() => window.location.href = `/t/${task.code}`}
+                  className="p-4 bg-white dark:bg-gray-900 rounded-lg font-mono hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+                >
+                  <div className="font-bold text-lg">{task.code}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{task.title}</div>
+                  <div className="text-xs text-gray-500 mt-2">
+                    Status: {task.status} | Priority: {task.priority} | Group: {String(task.group_num).padStart(2, '0')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     )
@@ -365,17 +786,70 @@ export default function BrowsePage() {
           {universes.map((universe) => (
             <div
               key={universe.id}
-              onClick={() => setSelectedUniverse(universe)}
-              className={`p-4 cursor-pointer border-b border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 ${
+              className={`p-4 border-b border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 ${
                 selectedUniverse?.id === universe.id ? 'bg-yellow-100 dark:bg-yellow-900/20' : ''
               }`}
             >
-              <div className="font-mono">
-                <span className="text-xl font-bold">{universe.code}</span>
-                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">({universe.name})</span>
-              </div>
-              {selectedUniverse?.id === universe.id && (
-                <div className="mt-2 h-1 bg-gradient-to-r from-yellow-400 to-yellow-500" />
+              {editingItem === 'universe' && editingId === universe.id ? (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={editCode}
+                      onChange={(e) => setEditCode(e.target.value.toUpperCase().slice(0, 1))}
+                      className="w-12 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded text-center"
+                      maxLength={1}
+                      placeholder="C"
+                    />
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="flex-1 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
+                      placeholder="Name"
+                    />
+                  </div>
+                  {editError && (
+                    <div className="text-red-600 text-xs">{editError}</div>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={saveEdit}
+                      className="px-3 py-1 bg-green-600 text-white rounded text-xs"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      className="px-3 py-1 bg-gray-400 text-white rounded text-xs"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="group relative">
+                  <div
+                    onClick={() => setSelectedUniverse(universe)}
+                    className="cursor-pointer font-mono"
+                  >
+                    <span className="text-xl font-bold">{universe.code}</span>
+                    <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">({universe.name})</span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      startEdit('universe', universe.id, universe.code, universe.name)
+                    }}
+                    className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600 transition-opacity"
+                    title="Edit"
+                  >
+                    ∴
+                  </button>
+                  {selectedUniverse?.id === universe.id && (
+                    <div className="mt-2 h-1 bg-gradient-to-r from-yellow-400 to-yellow-500" />
+                  )}
+                </div>
               )}
             </div>
           ))}
@@ -419,15 +893,68 @@ export default function BrowsePage() {
               {phylums.map((phylum) => (
                 <div
                   key={phylum.id}
-                  onClick={() => setSelectedPhylum(phylum)}
-                  className={`p-4 cursor-pointer border-b border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                  className={`p-4 border-b border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 ${
                     selectedPhylum?.id === phylum.id ? 'bg-yellow-100 dark:bg-yellow-900/20' : ''
                   }`}
                 >
-                  <div className="font-mono">
-                    <span className="text-xl font-bold">{phylum.code}</span>
-                    <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">({phylum.name})</span>
-                  </div>
+                  {editingItem === 'phylum' && editingId === phylum.id ? (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={editCode}
+                          onChange={(e) => setEditCode(e.target.value.toUpperCase().slice(0, 1))}
+                          className="w-12 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded text-center"
+                          maxLength={1}
+                          placeholder="C"
+                        />
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="flex-1 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
+                          placeholder="Name"
+                        />
+                      </div>
+                      {editError && (
+                        <div className="text-red-600 text-xs">{editError}</div>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={saveEdit}
+                          className="px-3 py-1 bg-green-600 text-white rounded text-xs"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="px-3 py-1 bg-gray-400 text-white rounded text-xs"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="group relative">
+                      <div
+                        onClick={() => setSelectedPhylum(phylum)}
+                        className="cursor-pointer font-mono"
+                      >
+                        <span className="text-xl font-bold">{phylum.code}</span>
+                        <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">({phylum.name})</span>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          startEdit('phylum', phylum.id, phylum.code, phylum.name)
+                        }}
+                        className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600 transition-opacity"
+                        title="Edit"
+                      >
+                        ∴
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
 
@@ -474,15 +1001,68 @@ export default function BrowsePage() {
               {families.map((family) => (
                 <div
                   key={family.id}
-                  onClick={() => setSelectedFamily(family)}
-                  className={`p-4 cursor-pointer border-b border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                  className={`p-4 border-b border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 ${
                     selectedFamily?.id === family.id ? 'bg-yellow-100 dark:bg-yellow-900/20' : ''
                   }`}
                 >
-                  <div className="font-mono">
-                    <span className="text-lg font-bold">{family.code}</span>
-                    <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">({family.name})</span>
-                  </div>
+                  {editingItem === 'family' && editingId === family.id ? (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={editCode}
+                          onChange={(e) => setEditCode(e.target.value.toUpperCase().slice(0, 1))}
+                          className="w-12 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded text-center"
+                          maxLength={1}
+                          placeholder="C"
+                        />
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="flex-1 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
+                          placeholder="Name"
+                        />
+                      </div>
+                      {editError && (
+                        <div className="text-red-600 text-xs">{editError}</div>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={saveEdit}
+                          className="px-3 py-1 bg-green-600 text-white rounded text-xs"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="px-3 py-1 bg-gray-400 text-white rounded text-xs"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="group relative">
+                      <div
+                        onClick={() => setSelectedFamily(family)}
+                        className="cursor-pointer font-mono"
+                      >
+                        <span className="text-lg font-bold">{family.code}</span>
+                        <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">({family.name})</span>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          startEdit('family', family.id, family.code, family.name)
+                        }}
+                        className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600 transition-opacity"
+                        title="Edit"
+                      >
+                        ∴
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
 
@@ -529,17 +1109,60 @@ export default function BrowsePage() {
               {groups.map((group) => (
                 <div
                   key={`${group.group_num}`}
-                  onClick={() => setSelectedGroup(group)}
-                  className={`p-4 cursor-pointer border-b border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                  className={`p-4 border-b border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 ${
                     selectedGroup?.group_num === group.group_num ? 'bg-yellow-100 dark:bg-yellow-900/20' : ''
                   }`}
                 >
-                  <div className="font-mono">
-                    <span className="font-bold">{String(group.group_num).padStart(2, '0')}</span>
-                    <span className="ml-2 text-sm">- {group.name}</span>
-                  </div>
-                  {group.task_count !== undefined && (
-                    <div className="text-xs text-gray-500 mt-1">{group.task_count} tasks</div>
+                  {editingItem === 'group' && editingId === group.id ? (
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
+                        placeholder="Group name"
+                      />
+                      {editError && (
+                        <div className="text-red-600 text-xs">{editError}</div>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={saveEdit}
+                          className="px-3 py-1 bg-green-600 text-white rounded text-xs"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="px-3 py-1 bg-gray-400 text-white rounded text-xs"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="group relative">
+                      <div
+                        onClick={() => setSelectedGroup(group)}
+                        className="cursor-pointer font-mono"
+                      >
+                        <span className="font-bold">{String(group.group_num).padStart(2, '0')}</span>
+                        <span className="ml-2 text-sm">- {group.name}</span>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          startEdit('group', group.id || String(group.group_num), '', group.name)
+                        }}
+                        className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600 transition-opacity"
+                        title="Edit"
+                      >
+                        ∴
+                      </button>
+                      {group.task_count !== undefined && (
+                        <div className="text-xs text-gray-500 mt-1">{group.task_count} tasks</div>
+                      )}
+                    </div>
                   )}
                 </div>
               ))}
