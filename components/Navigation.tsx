@@ -12,7 +12,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { key: 'C', label: 'Create', path: '/' },
-  { key: 'I', label: 'Index', path: '/index' },
+  { key: 'B', label: 'Browse', path: '/browse' },
   { key: 'T', label: 'Todo', path: '/todo' },
   { key: 'L', label: 'Log', path: '/log' },
 ]
