@@ -38,11 +38,12 @@ export default function LogPage() {
   const [newStartTime, setNewStartTime] = useState('')
 
   useEffect(() => {
-    loadEntries()
-    if (viewMode === 'month') {
-      loadCards()
-    }
-  }, [currentDate, viewMode])
+  loadEntries()
+  if (viewMode === 'month') {
+    loadCards()
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [currentDate, viewMode])
 
   async function loadEntries() {
     let startDate: Date
