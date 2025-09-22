@@ -199,8 +199,16 @@ export default function BrowsePage() {
       return
     }
     console.log('Validation passed, proceeding with database insert')
+    console.log('About to call Supabase with:', {
+      code: universeCode.toUpperCase().slice(0, 1),
+      name: universeName,
+      color: '#' + Math.floor(Math.random()*16777215).toString(16),
+      display_order: universes.length + 1
+    })
+
     try {
-      const { data, error } = await supabase
+      console.log('Calling Supabase insert...')
+      const result = await supabase
         .from('universes')
         .insert({
           code: universeCode.toUpperCase().slice(0, 1),
@@ -211,7 +219,9 @@ export default function BrowsePage() {
         .select()
         .single()
 
-      console.log('Supabase response:', { data, error })
+      console.log('Supabase call completed:', result)
+      const { data, error } = result
+      console.log('Destructured response:', { data, error })
 
       if (error) {
         console.error('Supabase error:', error)
@@ -229,8 +239,14 @@ export default function BrowsePage() {
         console.log('No data returned from insert')
       }
     } catch (error) {
-      console.error('Error creating universe:', error)
-      alert(`Failed to create universe: ${error}`)
+      console.error('Caught exception in createUniverse:', error)
+      console.error('Error type:', typeof error)
+      console.error('Error details:', {
+        message: (error as any)?.message,
+        stack: (error as any)?.stack,
+        name: (error as any)?.name
+      })
+      alert(`Failed to create universe: ${(error as any)?.message || error}`)
     }
   }
 
@@ -895,11 +911,7 @@ export default function BrowsePage() {
                 type="text"
                 placeholder="Code"
                 value={universeCode}
-                onChange={(e) => {
-                  const newValue = e.target.value.toUpperCase().slice(0, 1)
-                  console.log('Universe code changed:', newValue)
-                  setUniverseCode(newValue)
-                }}
+                onChange={(e) => setUniverseCode(e.target.value.toUpperCase().slice(0, 1))}
                 className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
                 maxLength={1}
               />
@@ -907,10 +919,7 @@ export default function BrowsePage() {
                 type="text"
                 placeholder="Name"
                 value={universeName}
-                onChange={(e) => {
-                  console.log('Universe name changed:', e.target.value)
-                  setUniverseName(e.target.value)
-                }}
+                onChange={(e) => setUniverseName(e.target.value)}
                 className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
               />
               <div className="flex gap-2">
