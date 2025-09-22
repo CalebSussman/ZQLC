@@ -42,7 +42,11 @@ export default function CreatePage() {
   const [taskNum, setTaskNum] = useState('')
   
   // UI state
-  const [activePanel, setActivePanel] = useState<'status' | 'universe' | 'phylum' | 'family' | 'group' | 'task'>('status')
+  const [focusedField, setFocusedField] = useState<'status' | 'universe' | 'phylum' | 'family' | 'group' | null>('status')
+  const [statusCode, setStatusCode] = useState('')
+  const [universeCode, setUniverseCode] = useState('')
+  const [phylumCode, setPhylumCode] = useState('')
+  const [familyCode, setFamilyCode] = useState('')
   const [isExistingTask, setIsExistingTask] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
 
@@ -64,6 +68,62 @@ export default function CreatePage() {
       }
     }
   }, [selectedPhylum, selectedUniverse, selectedFamily])
+
+  // Keyboard event handler for typing auto-selection
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.target && (e.target as HTMLElement).tagName === 'INPUT') return // Don't interfere with input fields
+
+      const key = e.key.toUpperCase()
+
+      // Status panel auto-selection
+      if ((!selectedStatus || focusedField === 'status')) {
+        const status = STATUSES.find(s => s.code === key)
+        if (status) {
+          setSelectedStatus(status)
+          setStatusCode(key)
+          setFocusedField('universe')
+          return
+        }
+      }
+
+      // Universe panel auto-selection
+      if (selectedStatus && (!selectedUniverse || focusedField === 'universe')) {
+        const universe = universes.find(u => u.code === key)
+        if (universe) {
+          setSelectedUniverse(universe)
+          setUniverseCode(key)
+          setFocusedField('phylum')
+          return
+        }
+      }
+
+      // Phylum panel auto-selection
+      if (selectedUniverse && (!selectedPhylum || focusedField === 'phylum')) {
+        const phylum = phylums.find(p => p.code === key)
+        if (phylum) {
+          setSelectedPhylum(phylum)
+          setPhylumCode(key)
+          setFocusedField('family')
+          return
+        }
+      }
+
+      // Family panel auto-selection
+      if (selectedPhylum && (!selectedFamily || focusedField === 'family')) {
+        const family = families.find(f => f.code === key)
+        if (family) {
+          setSelectedFamily(family)
+          setFamilyCode(key)
+          setFocusedField('group')
+          return
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [selectedStatus, selectedUniverse, selectedPhylum, selectedFamily, focusedField, universes, phylums, families])
 
   async function loadInitialData() {
     // Load universes
@@ -225,19 +285,101 @@ export default function CreatePage() {
 
         {/* Code Builder */}
         <div className="mb-8 bg-white dark:bg-gray-900 p-6 rounded-lg border border-gray-300 dark:border-gray-700">
-          <div className="font-mono text-lg mb-4">
+          <div className="font-mono text-lg mb-4 flex items-center">
             <span className="text-gray-500">[</span>
-            <span className="text-purple-600 font-bold">{selectedStatus?.code || 'S'}</span>
+            <input
+              type="text"
+              value={statusCode || selectedStatus?.code || ''}
+              onChange={(e) => {
+                const value = e.target.value.toUpperCase()
+                setStatusCode(value)
+                if (value) {
+                  const status = STATUSES.find(s => s.code === value)
+                  if (status) setSelectedStatus(status)
+                }
+              }}
+              onFocus={() => setFocusedField('status')}
+              onClick={() => setFocusedField('status')}
+              className="w-6 text-purple-600 font-bold bg-transparent border-none focus:outline-none focus:bg-purple-50 dark:focus:bg-purple-900/20 text-center cursor-pointer"
+              placeholder="S"
+              maxLength={1}
+            />
             <span className="text-gray-500">-</span>
-            <span className="text-blue-600">{selectedUniverse?.code || 'U'}</span>
+            <input
+              type="text"
+              value={universeCode || selectedUniverse?.code || ''}
+              onChange={(e) => {
+                const value = e.target.value.toUpperCase()
+                setUniverseCode(value)
+                if (value) {
+                  const universe = universes.find(u => u.code === value)
+                  if (universe) setSelectedUniverse(universe)
+                }
+              }}
+              onFocus={() => setFocusedField('universe')}
+              onClick={() => setFocusedField('universe')}
+              className="w-6 text-blue-600 bg-transparent border-none focus:outline-none focus:bg-blue-50 dark:focus:bg-blue-900/20 text-center cursor-pointer"
+              placeholder="U"
+              maxLength={1}
+            />
             <span className="text-gray-500">/</span>
-            <span className="text-blue-600">{selectedPhylum?.code || 'P'}</span>
+            <input
+              type="text"
+              value={phylumCode || selectedPhylum?.code || ''}
+              onChange={(e) => {
+                const value = e.target.value.toUpperCase()
+                setPhylumCode(value)
+                if (value) {
+                  const phylum = phylums.find(p => p.code === value)
+                  if (phylum) setSelectedPhylum(phylum)
+                }
+              }}
+              onFocus={() => setFocusedField('phylum')}
+              onClick={() => setFocusedField('phylum')}
+              className="w-6 text-blue-600 bg-transparent border-none focus:outline-none focus:bg-blue-50 dark:focus:bg-blue-900/20 text-center cursor-pointer"
+              placeholder="P"
+              maxLength={1}
+            />
             <span className="text-gray-500">/</span>
-            <span className="text-blue-600">{selectedFamily?.code || 'F'}</span>
+            <input
+              type="text"
+              value={familyCode || selectedFamily?.code || ''}
+              onChange={(e) => {
+                const value = e.target.value.toUpperCase()
+                setFamilyCode(value)
+                if (value) {
+                  const family = families.find(f => f.code === value)
+                  if (family) setSelectedFamily(family)
+                } else {
+                  setSelectedFamily(null)
+                }
+              }}
+              onFocus={() => setFocusedField('family')}
+              onClick={() => setFocusedField('family')}
+              className="w-6 text-blue-600 bg-transparent border-none focus:outline-none focus:bg-blue-50 dark:focus:bg-blue-900/20 text-center cursor-pointer"
+              placeholder="F"
+              maxLength={1}
+            />
             <span className="text-gray-500">]-</span>
-            <span className="text-green-600">{groupNum.padStart(2, '0') || '##'}</span>
+            <input
+              type="text"
+              value={groupNum}
+              onChange={(e) => setGroupNum(e.target.value.replace(/\D/g, '').slice(0, 2))}
+              onFocus={() => setFocusedField('group')}
+              onClick={() => setFocusedField('group')}
+              className="w-8 text-green-600 bg-transparent border-none focus:outline-none focus:bg-green-50 dark:focus:bg-green-900/20 text-center cursor-pointer"
+              placeholder="##"
+              maxLength={2}
+            />
             <span className="text-gray-500">.</span>
-            <span className="text-green-600">{taskNum.padStart(2, '0') || '##'}</span>
+            <input
+              type="text"
+              value={taskNum}
+              onChange={(e) => setTaskNum(e.target.value.replace(/\D/g, '').slice(0, 2))}
+              className="w-8 text-green-600 bg-transparent border-none focus:outline-none focus:bg-green-50 dark:focus:bg-green-900/20 text-center"
+              placeholder="##"
+              maxLength={2}
+            />
           </div>
           
           {selectedStatus && selectedUniverse && selectedPhylum && groupNum && taskNum && (
@@ -249,9 +391,9 @@ export default function CreatePage() {
           )}
         </div>
 
-        {/* Progressive Panels */}
+        {/* Contextual Panels */}
         {/* Status Panel */}
-        {activePanel === 'status' && (
+        {(!selectedStatus || focusedField === 'status') && (
           <div className="mb-6 p-4 bg-white dark:bg-gray-900 rounded-lg border-2 border-purple-500">
             <h3 className="font-mono font-bold mb-4">Select Status:</h3>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -260,7 +402,8 @@ export default function CreatePage() {
                   key={status.code}
                   onClick={() => {
                     setSelectedStatus(status)
-                    setActivePanel('universe')
+                    setStatusCode(status.code)
+                    setFocusedField('universe')
                   }}
                   className={`p-4 rounded-lg border-2 transition-all hover:scale-105 font-mono ${
                     selectedStatus?.code === status.code
@@ -277,7 +420,7 @@ export default function CreatePage() {
         )}
 
         {/* Universe Panel */}
-        {activePanel === 'universe' && selectedStatus && (
+        {selectedStatus && (!selectedUniverse || focusedField === 'universe') && (
           <div className="mb-6 p-4 bg-white dark:bg-gray-900 rounded-lg border-2 border-blue-500">
             <h3 className="font-mono font-bold mb-4">Select Universe:</h3>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -286,7 +429,8 @@ export default function CreatePage() {
                   key={universe.id}
                   onClick={() => {
                     setSelectedUniverse(universe)
-                    setActivePanel('phylum')
+                    setUniverseCode(universe.code)
+                    setFocusedField('phylum')
                   }}
                   className={`p-4 rounded-lg border-2 transition-all hover:scale-105 font-mono ${
                     selectedUniverse?.id === universe.id
@@ -303,7 +447,7 @@ export default function CreatePage() {
         )}
 
         {/* Phylum Panel */}
-        {activePanel === 'phylum' && selectedUniverse && (
+        {selectedUniverse && (!selectedPhylum || focusedField === 'phylum') && (
           <div className="mb-6 p-4 bg-white dark:bg-gray-900 rounded-lg border-2 border-blue-500">
             <h3 className="font-mono font-bold mb-4">Select Phylum:</h3>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -312,7 +456,8 @@ export default function CreatePage() {
                   key={phylum.id}
                   onClick={() => {
                     setSelectedPhylum(phylum)
-                    setActivePanel('family')
+                    setPhylumCode(phylum.code)
+                    setFocusedField('family')
                   }}
                   className={`p-4 rounded-lg border-2 transition-all hover:scale-105 font-mono ${
                     selectedPhylum?.id === phylum.id
@@ -329,13 +474,14 @@ export default function CreatePage() {
         )}
 
         {/* Family Panel (Optional) */}
-        {activePanel === 'family' && selectedPhylum && (
+        {selectedPhylum && (!selectedFamily || focusedField === 'family') && (
           <div className="mb-6 p-4 bg-white dark:bg-gray-900 rounded-lg border-2 border-yellow-500">
             <h3 className="font-mono font-bold mb-4">Select Family (Optional):</h3>
             <button
               onClick={() => {
                 setSelectedFamily(null)
-                setActivePanel('group')
+                setFamilyCode('')
+                setFocusedField('group')
               }}
               className="w-full mb-3 p-3 text-left font-mono text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700"
             >
@@ -347,7 +493,8 @@ export default function CreatePage() {
                   key={family.id}
                   onClick={() => {
                     setSelectedFamily(family)
-                    setActivePanel('group')
+                    setFamilyCode(family.code)
+                    setFocusedField('group')
                   }}
                   className={`p-4 rounded-lg border-2 transition-all hover:scale-105 font-mono ${
                     selectedFamily?.id === family.id
@@ -364,7 +511,7 @@ export default function CreatePage() {
         )}
 
         {/* Group Panel */}
-        {activePanel === 'group' && selectedPhylum && (
+        {selectedPhylum && (!groupNum || focusedField === 'group') && (
           <div className="mb-6 p-4 bg-white dark:bg-gray-900 rounded-lg border-2 border-green-500">
             <h3 className="font-mono font-bold mb-4">Select or Create Group:</h3>
             <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
@@ -374,7 +521,7 @@ export default function CreatePage() {
                   onClick={() => {
                     setSelectedGroup(group)
                     setGroupNum(String(group.group_num).padStart(2, '0'))
-                    setActivePanel('task')
+                    setFocusedField(null)
                   }}
                   className={`p-3 rounded-lg border-2 transition-all hover:scale-105 font-mono ${
                     selectedGroup?.group_num === group.group_num
@@ -391,7 +538,7 @@ export default function CreatePage() {
                 onClick={() => {
                   const nextGroup = Math.max(...groups.map(g => g.group_num), -1) + 1
                   setGroupNum(String(nextGroup).padStart(2, '0'))
-                  setActivePanel('task')
+                  setFocusedField(null)
                 }}
                 className="p-3 rounded-lg border-2 border-dashed border-gray-400 hover:border-green-400 transition-all font-mono"
               >
@@ -403,7 +550,7 @@ export default function CreatePage() {
         )}
 
         {/* Task Number Panel */}
-        {activePanel === 'task' && groupNum && (
+        {groupNum && !taskNum && (
           <div className="mb-6 p-4 bg-white dark:bg-gray-900 rounded-lg border-2 border-green-500">
             <h3 className="font-mono font-bold mb-4">Enter Task Number:</h3>
             <input
