@@ -1,6 +1,11 @@
 import './globals.css'
 import type { Metadata } from 'next'
-import Navigation from '@/components/Navigation'
+import dynamic from 'next/dynamic'
+
+// Dynamic import to avoid SSR issues
+const Navigation = dynamic(() => import('@/components/Navigation'), {
+  ssr: false
+})
 
 export const metadata: Metadata = {
   title: 'ATOL - Semantic Task Ledger',
