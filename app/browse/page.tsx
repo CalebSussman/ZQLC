@@ -188,10 +188,17 @@ export default function BrowsePage() {
 
   async function createUniverse() {
     console.log('createUniverse called with:', { universeCode, universeName })
+    console.log('Validation check:', {
+      universeCodeTruthy: !!universeCode,
+      universeNameTruthy: !!universeName,
+      universeCodeLength: universeCode?.length,
+      universeNameLength: universeName?.length
+    })
     if (!universeCode || !universeName) {
-      console.log('Validation failed - missing code or name')
+      console.log('Validation failed - missing code or name', { universeCode, universeName })
       return
     }
+    console.log('Validation passed, proceeding with database insert')
     try {
       const { data, error } = await supabase
         .from('universes')
