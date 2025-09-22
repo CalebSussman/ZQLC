@@ -230,11 +230,21 @@ export default function BrowsePage() {
       }
 
       if (data) {
-        setUniverses([...universes, data])
+        console.log('Current universes before update:', universes.length, universes)
+        const newUniverses = [...universes, data]
+        console.log('New universes array:', newUniverses.length, newUniverses)
+        setUniverses(newUniverses)
         setCreatingUniverse(false)
         setUniverseCode('')
         setUniverseName('')
         console.log('Universe created successfully:', data)
+        console.log('State updates called - universe should appear in UI')
+
+        // Also reload universes from database to make sure we're in sync
+        setTimeout(() => {
+          console.log('Reloading universes from database...')
+          loadUniverses()
+        }, 100)
       } else {
         console.log('No data returned from insert')
       }
