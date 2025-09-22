@@ -1,36 +1,160 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  /* Light Mode */
+  --background: #F8F7F4;
+  --foreground: #1A1A1A;
+  --card: #FFFFFF;
+  --card-foreground: #1A1A1A;
+  --navigation: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
+  --task-creation: #FFF9C4;
+  --highlight: #FFEB3B;
+  --border: #E5E5E5;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+    /* Dark Mode */
+    --background: #0A0A0B;
+    --foreground: #E8E6E3;
+    --card: #1A1A1B;
+    --card-foreground: #E8E6E3;
+    --navigation: #1E3A5F;
+    --task-creation: #3D3A2B;
+    --highlight: #FFA000;
+    --border: #2A2A2B;
   }
 }
 
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  font-family: 'IBM Plex Mono', 'Courier Prime', 'Courier New', monospace;
+  background-color: var(--background);
+  color: var(--foreground);
+  line-height: 1.6;
 }
 
-/* Custom styles for ATOL */
-.task-card {
-  @apply bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-3 hover:shadow-lg transition-shadow;
+/* Remove all emoji fonts to prevent emoji display */
+@font-face {
+  font-family: 'Noto Color Emoji';
+  src: local('Arial');
 }
 
-.universe-badge {
-  @apply inline-block px-2 py-1 rounded-full text-xs font-semibold text-white;
+@font-face {
+  font-family: 'Apple Color Emoji';
+  src: local('Arial');
 }
+
+@font-face {
+  font-family: 'Segoe UI Emoji';
+  src: local('Arial');
+}
+
+/* ASCII Box Drawing Characters */
+.ascii-box {
+  border: 1px solid;
+  border-image: linear-gradient(90deg, #666 50%, transparent 50%) 1;
+  background-image: 
+    linear-gradient(90deg, #666 1px, transparent 1px),
+    linear-gradient(180deg, #666 1px, transparent 1px);
+  background-size: 8px 8px;
+}
+
+/* Terminal-style cursor blink */
+.cursor-blink::after {
+  content: '_';
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* Progress bars with ASCII characters */
+.progress-full {
+  background: repeating-linear-gradient(
+    90deg,
+    currentColor,
+    currentColor 2px,
+    transparent 2px,
+    transparent 4px
+  );
+}
+
+.progress-medium {
+  background: repeating-linear-gradient(
+    90deg,
+    currentColor,
+    currentColor 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.progress-low {
+  background: repeating-linear-gradient(
+    90deg,
+    currentColor,
+    currentColor 1px,
+    transparent 1px,
+    transparent 5px
+  );
+}
+
+/* Retro terminal glow effect */
+.terminal-glow {
+  text-shadow: 
+    0 0 5px rgba(255, 235, 59, 0.5),
+    0 0 10px rgba(255, 235, 59, 0.3);
+}
+
+/* ASCII art borders */
+.border-ascii-single {
+  border: 1px solid currentColor;
+  border-style: dashed;
+}
+
+.border-ascii-double {
+  border: 3px double currentColor;
+}
+
+/* No smooth scrolling - terminal style */
+* {
+  scroll-behavior: auto !important;
+}
+
+/* Remove focus outlines and use ASCII style */
+*:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--highlight);
+}
+
+/* Monospace everything */
+input, textarea, select, button {
+  font-family: inherit;
+}
+
+/* Terminal-style selections */
+::selection {
+  background-color: var(--highlight);
+  color: var(--background);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
