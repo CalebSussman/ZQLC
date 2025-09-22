@@ -18,6 +18,7 @@ interface Group {
 
 export default function IndexPage() {
   const router = useRouter()
+  const [mounted, setMounted] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [mobileTab, setMobileTab] = useState<'UNI' | 'PHY' | 'FAM' | 'GRP' | 'TSK'>('UNI')
   
@@ -45,178 +46,225 @@ export default function IndexPage() {
   const [newName, setNewName] = useState('')
   const [newGroupNum, setNewGroupNum] = useState('')
 
+  // Handle client-side mounting
   useEffect(() => {
+    setMounted(true)
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
     checkMobile()
     window.addEventListener('resize', checkMobile)
+    
+    // Load data after mounting
     loadUniverses()
+    
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
   useEffect(() => {
-    if (selectedUniverse) {
+    if (mounted && selectedUniverse) {
       loadPhylums()
       if (isMobile) setMobileTab('PHY')
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedUniverse])
+  }, [selectedUniverse, mounted])
 
   useEffect(() => {
-    if (selectedPhylum) {
+    if (mounted && selectedPhylum) {
       loadFamilies()
       loadGroups()
       if (isMobile) setMobileTab('FAM')
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPhylum])
+  }, [selectedPhylum, mounted])
 
   useEffect(() => {
-    if (selectedPhylum && selectedGroup) {
+    if (mounted && selectedPhylum && selectedGroup) {
       loadTasks()
       if (isMobile) setMobileTab('TSK')
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGroup])
+  }, [selectedGroup, mounted])
+
+  // Don't render anything until mounted to avoid hydration issues
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-[#F8F7F4] dark:bg-[#0A0A0B] flex items-center justify-center">
+        <div className="text-gray-500 font-mono">Loading...</div>
+      </div>
+    )
+  }
 
   async function loadUniverses() {
-    const { data } = await supabase
-      .from('universes')
-      .select('*')
-      .order('display_order')
-    setUniverses(data || [])
+    try {
+      const { data } = await supabase
+        .from('universes')
+        .select('*')
+        .order('display_order')
+      setUniverses(data || [])
+    } catch (error) {
+      console.error('Error loading universes:', error)
+    }
   }
 
   async function loadPhylums() {
     if (!selectedUniverse) return
-    const { data } = await supabase
-      .from('phyla')
-      .select('*')
-      .eq('universe_id', selectedUniverse.id)
-      .order('display_order')
-    setPhylums(data || [])
+    try {
+      const { data } = await supabase
+        .from('phyla')
+        .select('*')
+        .eq('universe_id', selectedUniverse.id)
+        .order('display_order')
+      setPhylums(data || [])
+    } catch (error) {
+      console.error('Error loading phylums:', error)
+    }
   }
 
   async function loadFamilies() {
     if (!selectedPhylum) return
-    const { data } = await supabase
-      .from('families')
-      .select('*')
-      .eq('phylum_id', selectedPhylum.id)
-      .order('display_order')
-    setFamilies(data || [])
+    try {
+      const { data } = await supabase
+        .from('families')
+        .select('*')
+        .eq('phylum_id', selectedPhylum.id)
+        .order('display_order')
+      setFamilies(data || [])
+    } catch (error) {
+      console.error('Error loading families:', error)
+    }
   }
 
   async function loadGroups() {
     if (!selectedPhylum || !selectedUniverse) return
-    const query = supabase
-      .from('groups_with_counts')
-      .select('*')
-      .eq('universe_id', selectedUniverse.id)
-      .eq('phylum_id', selectedPhylum.id)
-    
-    if (selectedFamily) {
-      query.eq('family_id', selectedFamily.id)
-    } else {
-      query.is('family_id', null)
+    try {
+      const query = supabase
+        .from('groups_with_counts')
+        .select('*')
+        .eq('universe_id', selectedUniverse.id)
+        .eq('phylum_id', selectedPhylum.id)
+      
+      if (selectedFamily) {
+        query.eq('family_id', selectedFamily.id)
+      } else {
+        query.is('family_id', null)
+      }
+      
+      const { data } = await query.order('group_num')
+      setGroups(data || [])
+    } catch (error) {
+      console.error('Error loading groups:', error)
     }
-    
-    const { data } = await query.order('group_num')
-    setGroups(data || [])
   }
 
   async function loadTasks() {
     if (!selectedPhylum || !selectedUniverse || !selectedGroup) return
-    const query = supabase
-      .from('task_details')
-      .select('*')
-      .eq('universe_id', selectedUniverse.id)
-      .eq('phylum_id', selectedPhylum.id)
-      .eq('group_num', selectedGroup.group_num)
-    
-    if (selectedFamily) {
-      query.eq('family_id', selectedFamily.id)
+    try {
+      const query = supabase
+        .from('task_details')
+        .select('*')
+        .eq('universe_id', selectedUniverse.id)
+        .eq('phylum_id', selectedPhylum.id)
+        .eq('group_num', selectedGroup.group_num)
+      
+      if (selectedFamily) {
+        query.eq('family_id', selectedFamily.id)
+      }
+      
+      const { data } = await query.order('task_num')
+      setTasks(data || [])
+    } catch (error) {
+      console.error('Error loading tasks:', error)
     }
-    
-    const { data } = await query.order('task_num')
-    setTasks(data || [])
   }
 
   async function createUniverse() {
     if (!newCode || !newName) return
-    const { data } = await supabase
-      .from('universes')
-      .insert({
-        code: newCode.toUpperCase().slice(0, 1),
-        name: newName,
-        color: '#' + Math.floor(Math.random()*16777215).toString(16)
-      })
-      .select()
-      .single()
-    
-    if (data) {
-      setUniverses([...universes, data])
-      setCreatingUniverse(false)
-      setNewCode('')
-      setNewName('')
+    try {
+      const { data } = await supabase
+        .from('universes')
+        .insert({
+          code: newCode.toUpperCase().slice(0, 1),
+          name: newName,
+          color: '#' + Math.floor(Math.random()*16777215).toString(16)
+        })
+        .select()
+        .single()
+      
+      if (data) {
+        setUniverses([...universes, data])
+        setCreatingUniverse(false)
+        setNewCode('')
+        setNewName('')
+      }
+    } catch (error) {
+      console.error('Error creating universe:', error)
     }
   }
 
   async function createPhylum() {
     if (!newCode || !newName || !selectedUniverse) return
-    const { data } = await supabase
-      .from('phyla')
-      .insert({
-        universe_id: selectedUniverse.id,
-        code: newCode.toUpperCase().slice(0, 1),
-        name: newName
-      })
-      .select()
-      .single()
-    
-    if (data) {
-      setPhylums([...phylums, data])
-      setCreatingPhylum(false)
-      setNewCode('')
-      setNewName('')
+    try {
+      const { data } = await supabase
+        .from('phyla')
+        .insert({
+          universe_id: selectedUniverse.id,
+          code: newCode.toUpperCase().slice(0, 1),
+          name: newName
+        })
+        .select()
+        .single()
+      
+      if (data) {
+        setPhylums([...phylums, data])
+        setCreatingPhylum(false)
+        setNewCode('')
+        setNewName('')
+      }
+    } catch (error) {
+      console.error('Error creating phylum:', error)
     }
   }
 
   async function createFamily() {
     if (!newCode || !newName || !selectedPhylum) return
-    const { data } = await supabase
-      .from('families')
-      .insert({
-        phylum_id: selectedPhylum.id,
-        code: newCode.toUpperCase().slice(0, 1),
-        name: newName
-      })
-      .select()
-      .single()
-    
-    if (data) {
-      setFamilies([...families, data])
-      setCreatingFamily(false)
-      setNewCode('')
-      setNewName('')
+    try {
+      const { data } = await supabase
+        .from('families')
+        .insert({
+          phylum_id: selectedPhylum.id,
+          code: newCode.toUpperCase().slice(0, 1),
+          name: newName
+        })
+        .select()
+        .single()
+      
+      if (data) {
+        setFamilies([...families, data])
+        setCreatingFamily(false)
+        setNewCode('')
+        setNewName('')
+      }
+    } catch (error) {
+      console.error('Error creating family:', error)
     }
   }
 
   async function createGroup() {
     if (!newGroupNum || !newName || !selectedPhylum || !selectedUniverse) return
-    await supabase
-      .from('groups')
-      .insert({
-        universe_id: selectedUniverse.id,
-        phylum_id: selectedPhylum.id,
-        family_id: selectedFamily?.id || null,
-        group_num: parseInt(newGroupNum),
-        name: newName
-      })
-    
-    loadGroups()
-    setCreatingGroup(false)
-    setNewGroupNum('')
-    setNewName('')
+    try {
+      await supabase
+        .from('groups')
+        .insert({
+          universe_id: selectedUniverse.id,
+          phylum_id: selectedPhylum.id,
+          family_id: selectedFamily?.id || null,
+          group_num: parseInt(newGroupNum),
+          name: newName
+        })
+      
+      loadGroups()
+      setCreatingGroup(false)
+      setNewGroupNum('')
+      setNewName('')
+    } catch (error) {
+      console.error('Error creating group:', error)
+    }
   }
 
   // Column component for desktop
@@ -301,7 +349,7 @@ export default function IndexPage() {
             </div>
           )}
 
-          {/* Similar patterns for FAM, GRP, TSK tabs */}
+          {/* Similar patterns for FAM, GRP, TSK tabs would go here */}
         </div>
       </div>
     )
