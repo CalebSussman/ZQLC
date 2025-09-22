@@ -151,3 +151,36 @@ export interface DailyLog {
   exported_at?: string
   created_at: string
 }
+// Add these new interfaces at the bottom of the file
+
+export interface Card {
+  id: string
+  card_number: string
+  start_date: string
+  end_date?: string
+  status: 'active' | 'filed'
+  filing_task_id?: string
+  created_at: string
+  updated_at: string
+  total_tasks?: number
+  completed_tasks?: number
+  pending_tasks?: number
+}
+
+export interface TaskCard {
+  id: string
+  task_id: string
+  card_id: string
+  added_date: string
+  position: number
+}
+
+export interface ActivitySummary {
+  id: string
+  summary_type: 'SOA' | 'SOWA' | 'SOMA' | 'SOYA'
+  period_start: string
+  period_end: string
+  content_json: any
+  content_markdown?: string
+  generated_at: string
+}
