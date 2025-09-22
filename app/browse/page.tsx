@@ -187,9 +187,13 @@ export default function BrowsePage() {
   }
 
   async function createUniverse() {
-    if (!universeCode || !universeName) return
+    console.log('createUniverse called with:', { universeCode, universeName })
+    if (!universeCode || !universeName) {
+      console.log('Validation failed - missing code or name')
+      return
+    }
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('universes')
         .insert({
           code: universeCode.toUpperCase().slice(0, 1),
@@ -200,14 +204,26 @@ export default function BrowsePage() {
         .select()
         .single()
 
+      console.log('Supabase response:', { data, error })
+
+      if (error) {
+        console.error('Supabase error:', error)
+        alert(`Error creating universe: ${error.message}`)
+        return
+      }
+
       if (data) {
         setUniverses([...universes, data])
         setCreatingUniverse(false)
         setUniverseCode('')
         setUniverseName('')
+        console.log('Universe created successfully:', data)
+      } else {
+        console.log('No data returned from insert')
       }
     } catch (error) {
       console.error('Error creating universe:', error)
+      alert(`Failed to create universe: ${error}`)
     }
   }
 
@@ -872,7 +888,11 @@ export default function BrowsePage() {
                 type="text"
                 placeholder="Code"
                 value={universeCode}
-                onChange={(e) => setUniverseCode(e.target.value.toUpperCase().slice(0, 1))}
+                onChange={(e) => {
+                  const newValue = e.target.value.toUpperCase().slice(0, 1)
+                  console.log('Universe code changed:', newValue)
+                  setUniverseCode(newValue)
+                }}
                 className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
                 maxLength={1}
               />
@@ -880,11 +900,18 @@ export default function BrowsePage() {
                 type="text"
                 placeholder="Name"
                 value={universeName}
-                onChange={(e) => setUniverseName(e.target.value)}
+                onChange={(e) => {
+                  console.log('Universe name changed:', e.target.value)
+                  setUniverseName(e.target.value)
+                }}
                 className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
               />
               <div className="flex gap-2">
-                <button onClick={createUniverse} className="px-3 py-1 bg-blue-600 text-white rounded">Create</button>
+                <button onClick={() => {
+                  console.log('Create button clicked')
+                  console.log('Current state:', { universeCode, universeName })
+                  createUniverse()
+                }} className="px-3 py-1 bg-blue-600 text-white rounded">Create</button>
                 <button onClick={() => setCreatingUniverse(false)} className="px-3 py-1 bg-gray-400 text-white rounded">Cancel</button>
               </div>
             </div>
