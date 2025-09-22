@@ -1,16 +1,7 @@
+'use client'
+
 import './globals.css'
-import type { Metadata } from 'next'
-import dynamic from 'next/dynamic'
-
-// Dynamic import to avoid SSR issues
-const Navigation = dynamic(() => import('@/components/Navigation'), {
-  ssr: false
-})
-
-export const metadata: Metadata = {
-  title: 'ATOL - Semantic Task Ledger',
-  description: 'Task management system with structured semantic codes',
-}
+import Navigation from '@/components/Navigation'
 
 export default function RootLayout({
   children,
@@ -19,6 +10,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <title>ATOL - Semantic Task Ledger</title>
+        <meta name="description" content="Task management system with structured semantic codes" />
+      </head>
       <body className="min-h-screen bg-[#F8F7F4] dark:bg-[#0A0A0B] text-[#1A1A1A] dark:text-[#E8E6E3]">
         <div className="flex">
           <Navigation />
