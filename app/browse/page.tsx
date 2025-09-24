@@ -910,6 +910,12 @@ export default function BrowsePage() {
                   )}
                 </div>
               ))}
+              <button
+                onClick={() => setCreatingPhylum(true)}
+                className="w-full p-4 border-2 border-dashed border-gray-400 rounded-lg font-mono text-gray-500"
+              >
+                + CREATE NEW
+              </button>
             </div>
           )}
 
@@ -995,6 +1001,12 @@ export default function BrowsePage() {
                   )}
                 </div>
               ))}
+              <button
+                onClick={() => setCreatingFamily(true)}
+                className="w-full p-4 border-2 border-dashed border-gray-400 rounded-lg font-mono text-gray-500"
+              >
+                + CREATE NEW
+              </button>
             </div>
           )}
 
@@ -1073,6 +1085,12 @@ export default function BrowsePage() {
                   )}
                 </div>
               ))}
+              <button
+                onClick={() => setCreatingGroup(true)}
+                className="w-full p-4 border-2 border-dashed border-gray-400 rounded-lg font-mono text-gray-500"
+              >
+                + CREATE NEW
+              </button>
             </div>
           )}
 
@@ -1350,27 +1368,20 @@ export default function BrowsePage() {
                   + CREATE
                 </button>
               ) : (
-                <div className="p-4 bg-gray-100 dark:bg-gray-800">
-                  <input
-                    type="text"
-                    placeholder="Code"
-                    value={phylumCode}
-                    onChange={(e) => setPhylumCode(e.target.value.toUpperCase().slice(0, 1))}
-                    className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
-                    maxLength={1}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Name"
-                    value={phylumName}
-                    onChange={(e) => setPhylumName(e.target.value)}
-                    className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
-                  />
-                  <div className="flex gap-2">
-                    <button onClick={createPhylum} className="px-3 py-1 bg-blue-600 text-white rounded">Create</button>
-                    <button onClick={() => setCreatingPhylum(false)} className="px-3 py-1 bg-gray-400 text-white rounded">Cancel</button>
-                  </div>
-                </div>
+                <SimpleCreateForm
+                  placeholder="Phylum Name"
+                  codeMaxLength={1}
+                  onCancel={() => {
+                    setCreatingPhylum(false)
+                    setPhylumCode('')
+                    setPhylumName('')
+                  }}
+                  onCreate={async (code, name) => {
+                    setPhylumCode(code)
+                    setPhylumName(name)
+                    await createPhylum()
+                  }}
+                />
               )}
             </>
           ) : (
@@ -1470,27 +1481,20 @@ export default function BrowsePage() {
                   + CREATE
                 </button>
               ) : (
-                <div className="p-4 bg-gray-100 dark:bg-gray-800">
-                  <input
-                    type="text"
-                    placeholder="Code"
-                    value={familyCode}
-                    onChange={(e) => setFamilyCode(e.target.value.toUpperCase().slice(0, 1))}
-                    className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
-                    maxLength={1}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Name"
-                    value={familyName}
-                    onChange={(e) => setFamilyName(e.target.value)}
-                    className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
-                  />
-                  <div className="flex gap-2">
-                    <button onClick={createFamily} className="px-3 py-1 bg-blue-600 text-white rounded">Create</button>
-                    <button onClick={() => setCreatingFamily(false) } className="px-3 py-1 bg-gray-400 text-white rounded">Cancel</button>
-                  </div>
-                </div>
+                <SimpleCreateForm
+                  placeholder="Family Name"
+                  codeMaxLength={1}
+                  onCancel={() => {
+                    setCreatingFamily(false)
+                    setFamilyCode('')
+                    setFamilyName('')
+                  }}
+                  onCreate={async (code, name) => {
+                    setFamilyCode(code)
+                    setFamilyName(name)
+                    await createFamily()
+                  }}
+                />
               )}
             </>
           ) : (
@@ -1583,27 +1587,22 @@ export default function BrowsePage() {
                   + CREATE
                 </button>
               ) : (
-                <div className="p-4 bg-gray-100 dark:bg-gray-800">
-                  <input
-                    type="text"
-                    placeholder="Number"
-                    value={newGroupNum}
-                    onChange={(e) => setNewGroupNum(e.target.value.replace(/\D/g, '').slice(0, 2))}
-                    className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
-                    maxLength={2}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Name"
-                    value={groupName}
-                    onChange={(e) => setGroupName(e.target.value)}
-                    className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
-                  />
-                  <div className="flex gap-2">
-                    <button onClick={createGroup} className="px-3 py-1 bg-blue-600 text-white rounded">Create</button>
-                    <button onClick={() => setCreatingGroup(false)} className="px-3 py-1 bg-gray-400 text-white rounded">Cancel</button>
-                  </div>
-                </div>
+                <SimpleCreateForm
+                  placeholder="Group Name"
+                  codeMaxLength={2}
+                  codeType="numeric"
+                  codePlaceholder="01"
+                  onCancel={() => {
+                    setCreatingGroup(false)
+                    setNewGroupNum('')
+                    setGroupName('')
+                  }}
+                  onCreate={async (code, name) => {
+                    setNewGroupNum(code)
+                    setGroupName(name)
+                    await createGroup()
+                  }}
+                />
               )}
             </>
           ) : (

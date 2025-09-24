@@ -7,13 +7,17 @@ interface SimpleCreateFormProps {
   onCreate: (code: string, name: string) => Promise<void>
   placeholder?: string
   codeMaxLength?: number
+  codeType?: 'alpha' | 'numeric'
+  codePlaceholder?: string
 }
 
 export default function SimpleCreateForm({
   onCancel,
   onCreate,
   placeholder = "Name",
-  codeMaxLength = 1
+  codeMaxLength = 1,
+  codeType = 'alpha',
+  codePlaceholder = 'C'
 }: SimpleCreateFormProps) {
   const [code, setCode] = useState('')
   const [name, setName] = useState('')
@@ -28,8 +32,16 @@ export default function SimpleCreateForm({
   }, [])
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.toUpperCase()
-    setCode(value.slice(0, codeMaxLength))
+    const value = e.target.value
+    if (codeType === 'numeric') {
+      // Only allow digits for numeric codes
+      const numericValue = value.replace(/\D/g, '')
+      setCode(numericValue.slice(0, codeMaxLength))
+    } else {
+      // Allow letters for alpha codes, convert to uppercase
+      const alphaValue = value.toUpperCase()
+      setCode(alphaValue.slice(0, codeMaxLength))
+    }
   }
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,9 +93,9 @@ export default function SimpleCreateForm({
             value={code}
             onChange={handleCodeChange}
             onKeyDown={handleKeyDown}
-            className="w-12 px-2 py-2 font-mono bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`${codeType === 'numeric' ? 'w-16' : 'w-12'} px-2 py-2 font-mono bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-center focus:outline-none focus:ring-2 focus:ring-blue-500`}
             maxLength={codeMaxLength}
-            placeholder="C"
+            placeholder={codePlaceholder}
             disabled={isCreating}
           />
           <input
