@@ -123,6 +123,90 @@ export default function Navigation() {
     router.push(`/t/${task.base_code?.toLowerCase()}`)
   }
 
+  const SearchOverlay = () => (
+    showSearch && (
+      <div className="fixed inset-0 bg-black/50 z-[100] flex items-start justify-center pt-16 sm:pt-32">
+        <div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-2xl shadow-2xl max-h-96 flex flex-col mx-4 sm:mx-0">
+          <div className="p-4 border-b border-gray-700">
+            <input
+              type="text"
+              placeholder="Search tasks, codes, or commands..."
+              className="w-full bg-transparent text-white font-mono text-lg focus:outline-none"
+              autoFocus
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setShowSearch(false)
+                  setSearchQuery('')
+                  setSearchResults([])
+                }
+                if (e.key === 'Enter' && searchResults.length > 0) {
+                  handleSearchSelect(searchResults[0])
+                }
+              }}
+            />
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {isSearching && (
+              <div className="p-4 text-gray-500 font-mono text-sm text-center">
+                Searching...
+              </div>
+            )}
+
+            {!isSearching && searchQuery && searchResults.length === 0 && (
+              <div className="p-4 text-gray-500 font-mono text-sm text-center">
+                No results found
+              </div>
+            )}
+
+            {!isSearching && searchResults.length > 0 && (
+              <div className="py-2">
+                {searchResults.map((task, index) => (
+                  <button
+                    key={task.id}
+                    onClick={() => handleSearchSelect(task)}
+                    className="w-full text-left px-4 py-3 hover:bg-gray-800 font-mono border-b border-gray-700 last:border-b-0"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="text-white font-bold text-sm sm:text-base">
+                          {task.display_code || task.base_code} - {task.title}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {task.universe_name} {' > '} {task.phylum_name}
+                          {task.family_name && ` > ${task.family_name}`} {' > '} {task.group_name}
+                        </div>
+                        {task.current_status_name && (
+                          <div className="text-xs text-yellow-400 mt-1">
+                            Status: {task.current_status_name}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-gray-500 text-xs ml-4 hidden sm:block">
+                        {index === 0 && 'Enter'}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!searchQuery && (
+              <div className="p-4 text-gray-500 font-mono text-sm">
+                <p>Type to search across all tasks and categories</p>
+                <p className="mt-2">• Search by task title, code, or notes</p>
+                <p>• Press Enter to open first result</p>
+                <p>• Press ESC to close</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  )
+
   if (isMobile) {
     // Mobile: Bottom tab bar
     return (
@@ -159,6 +243,7 @@ export default function Navigation() {
           </div>
         </nav>
         <div className="h-16" /> {/* Spacer for fixed bottom nav */}
+        <SearchOverlay />
       </>
     )
   }
@@ -211,89 +296,7 @@ export default function Navigation() {
         </div>
       </nav>
       <div className="w-64" /> {/* Spacer for fixed sidebar */}
-
-      {/* Search Overlay */}
-      {showSearch && (
-        <div className="fixed inset-0 bg-black/50 z-[100] flex items-start justify-center pt-32">
-          <div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-2xl shadow-2xl max-h-96 flex flex-col">
-            <div className="p-4 border-b border-gray-700">
-              <input
-                type="text"
-                placeholder="Search tasks, codes, or commands..."
-                className="w-full bg-transparent text-white font-mono text-lg focus:outline-none"
-                autoFocus
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') {
-                    setShowSearch(false)
-                    setSearchQuery('')
-                    setSearchResults([])
-                  }
-                  if (e.key === 'Enter' && searchResults.length > 0) {
-                    handleSearchSelect(searchResults[0])
-                  }
-                }}
-              />
-            </div>
-
-            <div className="flex-1 overflow-y-auto">
-              {isSearching && (
-                <div className="p-4 text-gray-500 font-mono text-sm text-center">
-                  Searching...
-                </div>
-              )}
-
-              {!isSearching && searchQuery && searchResults.length === 0 && (
-                <div className="p-4 text-gray-500 font-mono text-sm text-center">
-                  No results found
-                </div>
-              )}
-
-              {!isSearching && searchResults.length > 0 && (
-                <div className="py-2">
-                  {searchResults.map((task, index) => (
-                    <button
-                      key={task.id}
-                      onClick={() => handleSearchSelect(task)}
-                      className="w-full text-left px-4 py-3 hover:bg-gray-800 font-mono border-b border-gray-700 last:border-b-0"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="text-white font-bold">
-                            {task.display_code || task.base_code} - {task.title}
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1">
-                            {task.universe_name} {' > '} {task.phylum_name}
-                            {task.family_name && ` > ${task.family_name}`} {' > '} {task.group_name}
-                          </div>
-                          {task.current_status_name && (
-                            <div className="text-xs text-yellow-400 mt-1">
-                              Status: {task.current_status_name}
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-gray-500 text-xs ml-4">
-                          {index === 0 && 'Enter'}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {!searchQuery && (
-                <div className="p-4 text-gray-500 font-mono text-sm">
-                  <p>Type to search across all tasks and categories</p>
-                  <p className="mt-2">• Search by task title, code, or notes</p>
-                  <p>• Press Enter to open first result</p>
-                  <p>• Press ESC to close</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <SearchOverlay />
     </>
   )
 }
