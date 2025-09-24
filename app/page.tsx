@@ -272,20 +272,20 @@ export default function CreatePage() {
         </div>
 
         {/* Task Name */}
-        <div className="mb-8 bg-[#FFF9C4] dark:bg-[#3D3A2B] p-6 rounded-lg">
-          <div className="flex items-center gap-4">
+        <div className="mb-8 bg-[#FFF9C4] dark:bg-[#3D3A2B] p-4 sm:p-6 rounded-lg">
+          <div className="flex items-center gap-2 sm:gap-4">
             <input
               ref={taskNameRef}
               type="text"
               value={taskName}
               onChange={(e) => setTaskName(e.target.value)}
               placeholder="[TASK NAME]"
-              className="flex-1 text-2xl font-mono bg-transparent border-b-2 border-gray-400 dark:border-gray-600 pb-2 focus:outline-none focus:border-blue-600 placeholder-gray-500"
+              className="flex-1 min-w-0 text-lg sm:text-2xl font-mono bg-transparent border-b-2 border-gray-400 dark:border-gray-600 pb-2 focus:outline-none focus:border-blue-600 placeholder-gray-500"
             />
             <button
               onClick={createTask}
               disabled={!selectedStatus || !selectedUniverse || !selectedPhylum || !groupNum || !taskNum || !taskName}
-              className="px-4 py-2 text-2xl font-mono font-bold bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+              className="flex-shrink-0 px-3 py-2 sm:px-4 sm:py-2 text-xl sm:text-2xl font-mono font-bold bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
             >
               &gt;
             </button>
