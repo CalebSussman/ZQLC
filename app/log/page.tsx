@@ -318,7 +318,7 @@ export default function LogPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F7F4] dark:bg-[#0A0A0B] p-8">
+    <div className="min-h-screen bg-[#F8F7F4] dark:bg-[#0A0A0B] p-4 sm:p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8 pb-6 border-b-4 border-gray-900 dark:border-gray-300">
