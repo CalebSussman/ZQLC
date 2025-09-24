@@ -125,8 +125,18 @@ export default function Navigation() {
 
   const SearchOverlay = () => (
     showSearch && (
-      <div className="fixed inset-0 bg-black/50 z-[100] flex items-start justify-center pt-16 sm:pt-32">
-        <div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-2xl shadow-2xl max-h-96 flex flex-col mx-4 sm:mx-0">
+      <div
+        className="fixed inset-0 bg-black/50 z-[100] flex items-start justify-center pt-16 sm:pt-32"
+        onClick={() => {
+          setShowSearch(false)
+          setSearchQuery('')
+          setSearchResults([])
+        }}
+      >
+        <div
+          className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-2xl shadow-2xl max-h-96 flex flex-col mx-4 sm:mx-0"
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="p-4 border-b border-gray-700">
             <input
               type="text"
