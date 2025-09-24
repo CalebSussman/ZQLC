@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Universe, Phylum, Family, Task } from '@/lib/supabase'
+import SimpleCreateForm from '@/components/SimpleCreateForm'
 
 interface Group {
   id?: string
@@ -40,6 +41,7 @@ export default function BrowsePage() {
   const [creatingPhylum, setCreatingPhylum] = useState(false)
   const [creatingFamily, setCreatingFamily] = useState(false)
   const [creatingGroup, setCreatingGroup] = useState(false)
+  const [creatingTask, setCreatingTask] = useState(false)
 
   // Form state - separate for each entity type
   const [universeCode, setUniverseCode] = useState('')
@@ -50,6 +52,8 @@ export default function BrowsePage() {
   const [familyName, setFamilyName] = useState('')
   const [groupName, setGroupName] = useState('')
   const [newGroupNum, setNewGroupNum] = useState('')
+  const [taskTitle, setTaskTitle] = useState('')
+  const [taskNum, setTaskNum] = useState('')
 
   // Edit state
   const [editingItem, setEditingItem] = useState<'universe' | 'phylum' | 'family' | 'group' | null>(null)
@@ -61,13 +65,17 @@ export default function BrowsePage() {
   // Load functions
   const loadUniverses = useCallback(async () => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('universes')
         .select('*')
         .order('display_order')
-      setUniverses(data || [])
+      if (error) {
+        console.error('Error in loadUniverses:', error)
+      } else {
+        setUniverses(data || [])
+      }
     } catch (error) {
-      console.error('Error loading universes:', error)
+      console.error('Exception in loadUniverses:', error)
     }
   }, [])
 
@@ -149,18 +157,22 @@ export default function BrowsePage() {
     checkMobile()
     window.addEventListener('resize', checkMobile)
 
-    // Load data after mounting
-    loadUniverses()
-
     return () => window.removeEventListener('resize', checkMobile)
-  }, [loadUniverses])
+  }, [])
+
+  // Load data after mounting - separate effect
+  useEffect(() => {
+    if (mounted) {
+      loadUniverses()
+    }
+  }, [mounted])
 
   useEffect(() => {
     if (mounted && selectedUniverse) {
       loadPhylums()
       if (isMobile) setMobileTab('PHY')
     }
-  }, [selectedUniverse, mounted, isMobile, loadPhylums])
+  }, [selectedUniverse, mounted, isMobile])
 
   useEffect(() => {
     if (mounted && selectedPhylum) {
@@ -168,14 +180,15 @@ export default function BrowsePage() {
       loadGroups()
       if (isMobile) setMobileTab('FAM')
     }
-  }, [selectedPhylum, mounted, isMobile, loadFamilies, loadGroups])
+  }, [selectedPhylum, mounted, isMobile])
 
   useEffect(() => {
     if (mounted && selectedPhylum && selectedGroup) {
       loadTasks()
       if (isMobile) setMobileTab('TSK')
     }
-  }, [selectedGroup, mounted, selectedPhylum, isMobile, loadTasks])
+  }, [selectedGroup, mounted, selectedPhylum, isMobile])
+
 
   // Don't render anything until mounted to avoid hydration issues
   if (!mounted) {
@@ -186,42 +199,35 @@ export default function BrowsePage() {
     )
   }
 
+
   async function createUniverse() {
-    console.log('createUniverse called with:', { universeCode, universeName })
-    console.log('Validation check:', {
-      universeCodeTruthy: !!universeCode,
-      universeNameTruthy: !!universeName,
-      universeCodeLength: universeCode?.length,
-      universeNameLength: universeName?.length
-    })
-    if (!universeCode || !universeName) {
-      console.log('Validation failed - missing code or name', { universeCode, universeName })
+
+    if (!universeCode?.trim() || !universeName?.trim()) {
+      alert('Please enter both a code and name')
       return
     }
-    console.log('Validation passed, proceeding with database insert')
-    console.log('About to call Supabase with:', {
-      code: universeCode.toUpperCase().slice(0, 1),
-      name: universeName,
-      color: '#' + Math.floor(Math.random()*16777215).toString(16),
-      display_order: universes.length + 1
-    })
+
+    const trimmedCode = universeCode.trim().toUpperCase().slice(0, 1)
+
+    // Check for duplicate codes before attempting to create
+    const existingUniverse = universes.find(u => u.code === trimmedCode)
+    if (existingUniverse) {
+      alert(`A universe with code "${trimmedCode}" already exists: ${existingUniverse.name}`)
+      return
+    }
 
     try {
-      console.log('Calling Supabase insert...')
-      const result = await supabase
+
+      const { data, error } = await supabase
         .from('universes')
         .insert({
-          code: universeCode.toUpperCase().slice(0, 1),
-          name: universeName,
+          code: trimmedCode,
+          name: universeName.trim(),
           color: '#' + Math.floor(Math.random()*16777215).toString(16),
           display_order: universes.length + 1
         })
         .select()
         .single()
-
-      console.log('Supabase call completed:', result)
-      const { data, error } = result
-      console.log('Destructured response:', { data, error })
 
       if (error) {
         console.error('Supabase error:', error)
@@ -230,108 +236,209 @@ export default function BrowsePage() {
       }
 
       if (data) {
-        console.log('Current universes before update:', universes.length, universes)
 
-        // Use functional state update to ensure React detects the change
-        setUniverses(prevUniverses => {
-          const newUniverses = [...prevUniverses, data]
-          console.log('New universes array:', newUniverses.length, newUniverses)
-          return newUniverses
-        })
+        // Update local state immediately
+        setUniverses(prev => [...prev, data])
 
+        // Reset form
         setCreatingUniverse(false)
         setUniverseCode('')
         setUniverseName('')
-        console.log('Universe created successfully:', data)
-        console.log('State updates called - universe should appear in UI')
 
-        // Force a re-render by reloading from database
-        setTimeout(() => {
-          console.log('Reloading universes from database...')
-          loadUniverses()
-        }, 100)
-      } else {
-        console.log('No data returned from insert')
+        // Reload from database to ensure consistency
+        await loadUniverses()
       }
     } catch (error) {
-      console.error('Caught exception in createUniverse:', error)
-      console.error('Error type:', typeof error)
-      console.error('Error details:', {
-        message: (error as any)?.message,
-        stack: (error as any)?.stack,
-        name: (error as any)?.name
-      })
+      console.error('Exception in createUniverse:', error)
       alert(`Failed to create universe: ${(error as any)?.message || error}`)
     }
   }
 
   async function createPhylum() {
-    if (!phylumCode || !phylumName || !selectedUniverse) return
+    if (!phylumCode?.trim() || !phylumName?.trim() || !selectedUniverse) {
+      alert('Please enter both a code and name')
+      return
+    }
+
+    const trimmedCode = phylumCode.trim().toUpperCase().slice(0, 1)
+
+    // Check for duplicate codes
+    const existingPhylum = phylums.find(p => p.code === trimmedCode)
+    if (existingPhylum) {
+      alert(`A phylum with code "${trimmedCode}" already exists: ${existingPhylum.name}`)
+      return
+    }
+
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('phyla')
         .insert({
           universe_id: selectedUniverse.id,
-          code: phylumCode.toUpperCase().slice(0, 1),
-          name: phylumName
+          code: trimmedCode,
+          name: phylumName.trim()
         })
         .select()
         .single()
 
+      if (error) {
+        alert(`Error creating phylum: ${error.message}`)
+        return
+      }
+
       if (data) {
-        setPhylums([...phylums, data])
+        setPhylums(prev => [...prev, data])
         setCreatingPhylum(false)
         setPhylumCode('')
         setPhylumName('')
+        await loadPhylums()
       }
     } catch (error) {
       console.error('Error creating phylum:', error)
+      alert(`Failed to create phylum: ${(error as any)?.message || error}`)
     }
   }
 
   async function createFamily() {
-    if (!familyCode || !familyName || !selectedPhylum) return
+    if (!familyCode?.trim() || !familyName?.trim() || !selectedPhylum) {
+      alert('Please enter both a code and name')
+      return
+    }
+
+    const trimmedCode = familyCode.trim().toUpperCase().slice(0, 1)
+
+    // Check for duplicate codes
+    const existingFamily = families.find(f => f.code === trimmedCode)
+    if (existingFamily) {
+      alert(`A family with code "${trimmedCode}" already exists: ${existingFamily.name}`)
+      return
+    }
+
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('families')
         .insert({
           phylum_id: selectedPhylum.id,
-          code: familyCode.toUpperCase().slice(0, 1),
-          name: familyName
+          code: trimmedCode,
+          name: familyName.trim()
         })
         .select()
         .single()
 
+      if (error) {
+        alert(`Error creating family: ${error.message}`)
+        return
+      }
+
       if (data) {
-        setFamilies([...families, data])
+        setFamilies(prev => [...prev, data])
         setCreatingFamily(false)
         setFamilyCode('')
         setFamilyName('')
+        await loadFamilies()
       }
     } catch (error) {
       console.error('Error creating family:', error)
+      alert(`Failed to create family: ${(error as any)?.message || error}`)
     }
   }
 
   async function createGroup() {
-    if (!newGroupNum || !groupName || !selectedPhylum || !selectedUniverse) return
+    if (!newGroupNum?.trim() || !groupName?.trim() || !selectedPhylum || !selectedUniverse) {
+      alert('Please enter both a group number and name')
+      return
+    }
+
+    const groupNumber = parseInt(newGroupNum.trim())
+    if (isNaN(groupNumber) || groupNumber < 1 || groupNumber > 99) {
+      alert('Group number must be between 1 and 99')
+      return
+    }
+
+    // Check for duplicate group numbers
+    const existingGroup = groups.find(g => g.group_num === groupNumber)
+    if (existingGroup) {
+      alert(`A group with number "${groupNumber}" already exists: ${existingGroup.name}`)
+      return
+    }
+
     try {
-      await supabase
+      const { data, error } = await supabase
         .from('groups')
         .insert({
           universe_id: selectedUniverse.id,
           phylum_id: selectedPhylum.id,
           family_id: selectedFamily?.id || null,
-          group_num: parseInt(newGroupNum),
-          name: groupName
+          group_num: groupNumber,
+          name: groupName.trim()
         })
+        .select()
+        .single()
 
-      loadGroups()
-      setCreatingGroup(false)
-      setNewGroupNum('')
-      setGroupName('')
+      if (error) {
+        alert(`Error creating group: ${error.message}`)
+        return
+      }
+
+      if (data) {
+        setCreatingGroup(false)
+        setNewGroupNum('')
+        setGroupName('')
+        await loadGroups()
+      }
     } catch (error) {
       console.error('Error creating group:', error)
+      alert(`Failed to create group: ${(error as any)?.message || error}`)
+    }
+  }
+
+  async function createTask() {
+    if (!taskTitle || !taskNum || !selectedGroup || !selectedPhylum || !selectedUniverse) return
+
+    const timestamp = new Date()
+    const timestampStr = timestamp.toISOString()
+      .replace('T', '_')
+      .replace(/[-:]/g, '.')
+      .substring(0, 16)
+
+    const baseCode = `${selectedUniverse.code}${selectedPhylum.code}${selectedFamily?.code || ''}-${String(selectedGroup.group_num).padStart(2, '0')}.${taskNum.padStart(2, '0')}`.toUpperCase()
+    const fullCode = `R-${timestampStr}=${baseCode}`
+
+    try {
+      const { data: task, error } = await supabase
+        .from('tasks')
+        .insert({
+          code: fullCode,
+          base_code: baseCode,
+          title: taskTitle,
+          universe_id: selectedUniverse.id,
+          phylum_id: selectedPhylum.id,
+          family_id: selectedFamily?.id || null,
+          group_num: selectedGroup.group_num,
+          task_num: parseInt(taskNum),
+          priority: 3,
+          status: 'active',
+          task_timestamp: timestamp.toISOString()
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      if (task) {
+        await supabase.rpc('create_task_entry', {
+          p_task_id: task.id,
+          p_status_code: 'R',
+          p_note: 'Initial entry',
+          p_entry_timestamp: timestamp.toISOString()
+        })
+
+        loadTasks()
+        setCreatingTask(false)
+        setTaskTitle('')
+        setTaskNum('')
+      }
+    } catch (error) {
+      console.error('Error creating task:', error)
     }
   }
 
@@ -413,6 +520,113 @@ export default function BrowsePage() {
     } catch (error) {
       console.error('Error updating group:', error)
       alert('Failed to update group')
+    }
+  }
+
+  // Delete functions
+  async function deleteUniverse(id: string, name: string) {
+    if (!confirm(`Are you sure you want to delete the universe "${name}"? This will also delete all associated phyla, families, groups, and tasks. This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('universes')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      setUniverses(universes.filter(u => u.id !== id))
+
+      // Clear selection if this universe was selected
+      if (selectedUniverse?.id === id) {
+        setSelectedUniverse(null)
+        setSelectedPhylum(null)
+        setSelectedFamily(null)
+        setSelectedGroup(null)
+      }
+    } catch (error) {
+      console.error('Error deleting universe:', error)
+      alert('Failed to delete universe')
+    }
+  }
+
+  async function deletePhylum(id: string, name: string) {
+    if (!confirm(`Are you sure you want to delete the phylum "${name}"? This will also delete all associated families, groups, and tasks. This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('phyla')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      setPhylums(phylums.filter(p => p.id !== id))
+
+      // Clear selection if this phylum was selected
+      if (selectedPhylum?.id === id) {
+        setSelectedPhylum(null)
+        setSelectedFamily(null)
+        setSelectedGroup(null)
+      }
+    } catch (error) {
+      console.error('Error deleting phylum:', error)
+      alert('Failed to delete phylum')
+    }
+  }
+
+  async function deleteFamily(id: string, name: string) {
+    if (!confirm(`Are you sure you want to delete the family "${name}"? This will also delete all associated groups and tasks. This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('families')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      setFamilies(families.filter(f => f.id !== id))
+
+      // Clear selection if this family was selected
+      if (selectedFamily?.id === id) {
+        setSelectedFamily(null)
+        setSelectedGroup(null)
+      }
+    } catch (error) {
+      console.error('Error deleting family:', error)
+      alert('Failed to delete family')
+    }
+  }
+
+  async function deleteGroup(id: string, name: string) {
+    if (!confirm(`Are you sure you want to delete the group "${name}"? This will also delete all associated tasks. This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('groups')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      setGroups(groups.filter(g => g.id !== id))
+
+      // Clear selection if this group was selected
+      if (selectedGroup?.id === id) {
+        setSelectedGroup(null)
+      }
+    } catch (error) {
+      console.error('Error deleting group:', error)
+      alert('Failed to delete group')
     }
   }
 
@@ -579,16 +793,28 @@ export default function BrowsePage() {
                           <div className="h-full bg-yellow-500 rounded" style={{ width: '60%' }} />
                         </div>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          startEdit('universe', universe.id, universe.code, universe.name)
-                        }}
-                        className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-600"
-                        title="Edit"
-                      >
-                        ∴
-                      </button>
+                      <div className="absolute top-2 right-2 flex gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startEdit('universe', universe.id, universe.code, universe.name)
+                          }}
+                          className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Edit"
+                        >
+                          ∴
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteUniverse(universe.id, universe.name)
+                          }}
+                          className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                          title="Delete"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -658,16 +884,28 @@ export default function BrowsePage() {
                         <span className="text-xl font-bold">{phylum.code}</span>
                         <span className="ml-2 text-gray-600 dark:text-gray-400">{phylum.name}</span>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          startEdit('phylum', phylum.id, phylum.code, phylum.name)
-                        }}
-                        className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-600"
-                        title="Edit"
-                      >
-                        ∴
-                      </button>
+                      <div className="absolute top-2 right-2 flex gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startEdit('phylum', phylum.id, phylum.code, phylum.name)
+                          }}
+                          className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Edit"
+                        >
+                          ∴
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deletePhylum(phylum.id, phylum.name)
+                          }}
+                          className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                          title="Delete"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -731,16 +969,28 @@ export default function BrowsePage() {
                         <span className="text-xl font-bold">{family.code}</span>
                         <span className="ml-2 text-gray-600 dark:text-gray-400">{family.name}</span>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          startEdit('family', family.id, family.code, family.name)
-                        }}
-                        className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-600"
-                        title="Edit"
-                      >
-                        ∴
-                      </button>
+                      <div className="absolute top-2 right-2 flex gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startEdit('family', family.id, family.code, family.name)
+                          }}
+                          className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Edit"
+                        >
+                          ∴
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteFamily(family.id, family.name)
+                          }}
+                          className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                          title="Delete"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -797,16 +1047,28 @@ export default function BrowsePage() {
                           <div className="text-xs text-gray-500 mt-1">{group.task_count} tasks</div>
                         )}
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          startEdit('group', group.id || String(group.group_num), '', group.name)
-                        }}
-                        className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-600"
-                        title="Edit"
-                      >
-                        ∴
-                      </button>
+                      <div className="absolute top-2 right-2 flex gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startEdit('group', group.id || String(group.group_num), '', group.name)
+                          }}
+                          className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Edit"
+                        >
+                          ∴
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteGroup(group.id || '', group.name)
+                          }}
+                          className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                          title="Delete"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -829,6 +1091,52 @@ export default function BrowsePage() {
                   </div>
                 </div>
               ))}
+              {!creatingTask ? (
+                <button
+                  onClick={() => setCreatingTask(true)}
+                  className="w-full p-4 border-2 border-dashed border-gray-400 rounded-lg font-mono text-gray-500"
+                >
+                  + CREATE NEW
+                </button>
+              ) : (
+                <div className="p-4 bg-white dark:bg-gray-900 rounded-lg space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={taskNum}
+                      onChange={(e) => setTaskNum(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                      className="w-16 px-2 py-1 font-mono bg-gray-100 dark:bg-gray-700 rounded text-center"
+                      maxLength={2}
+                      placeholder="##"
+                    />
+                    <input
+                      type="text"
+                      value={taskTitle}
+                      onChange={(e) => setTaskTitle(e.target.value)}
+                      className="flex-1 px-2 py-1 font-mono bg-gray-100 dark:bg-gray-700 rounded"
+                      placeholder="Task title"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={createTask}
+                      className="px-3 py-1 bg-green-600 text-white rounded text-sm"
+                    >
+                      Create
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCreatingTask(false)
+                        setTaskTitle('')
+                        setTaskNum('')
+                      }}
+                      className="px-3 py-1 bg-gray-400 text-white rounded text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -895,16 +1203,28 @@ export default function BrowsePage() {
                     <span className="text-xl font-bold">{universe.code}</span>
                     <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">({universe.name})</span>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      startEdit('universe', universe.id, universe.code, universe.name)
-                    }}
-                    className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600 transition-opacity"
-                    title="Edit"
-                  >
-                    ∴
-                  </button>
+                  <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        startEdit('universe', universe.id, universe.code, universe.name)
+                      }}
+                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                      title="Edit"
+                    >
+                      ∴
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        deleteUniverse(universe.id, universe.name)
+                      }}
+                      className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      title="Delete"
+                    >
+                      ×
+                    </button>
+                  </div>
                   {selectedUniverse?.id === universe.id && (
                     <div className="mt-2 h-1 bg-gradient-to-r from-yellow-400 to-yellow-500" />
                   )}
@@ -921,49 +1241,20 @@ export default function BrowsePage() {
               + CREATE
             </button>
           ) : (
-            <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={universeCode}
-                    onChange={(e) => setUniverseCode(e.target.value.toUpperCase().slice(0, 1))}
-                    className="w-12 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded text-center"
-                    maxLength={1}
-                    placeholder="C"
-                  />
-                  <input
-                    type="text"
-                    value={universeName}
-                    onChange={(e) => setUniverseName(e.target.value)}
-                    className="flex-1 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
-                    placeholder="Name"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      console.log('Create button clicked')
-                      console.log('Current state:', { universeCode, universeName })
-                      createUniverse()
-                    }}
-                    className="px-3 py-1 bg-green-600 text-white rounded text-xs"
-                  >
-                    Create
-                  </button>
-                  <button
-                    onClick={() => {
-                      setCreatingUniverse(false)
-                      setUniverseCode('')
-                      setUniverseName('')
-                    }}
-                    className="px-3 py-1 bg-gray-400 text-white rounded text-xs"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
+            <SimpleCreateForm
+              placeholder="Universe Name"
+              codeMaxLength={1}
+              onCancel={() => {
+                setCreatingUniverse(false)
+                setUniverseCode('')
+                setUniverseName('')
+              }}
+              onCreate={async (code, name) => {
+                setUniverseCode(code)
+                setUniverseName(name)
+                await createUniverse()
+              }}
+            />
           )}
         </Column>
 
@@ -1024,16 +1315,28 @@ export default function BrowsePage() {
                         <span className="text-xl font-bold">{phylum.code}</span>
                         <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">({phylum.name})</span>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          startEdit('phylum', phylum.id, phylum.code, phylum.name)
-                        }}
-                        className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600 transition-opacity"
-                        title="Edit"
-                      >
-                        ∴
-                      </button>
+                      <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startEdit('phylum', phylum.id, phylum.code, phylum.name)
+                          }}
+                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Edit"
+                        >
+                          ∴
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deletePhylum(phylum.id, phylum.name)
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                          title="Delete"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1132,16 +1435,28 @@ export default function BrowsePage() {
                         <span className="text-lg font-bold">{family.code}</span>
                         <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">({family.name})</span>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          startEdit('family', family.id, family.code, family.name)
-                        }}
-                        className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600 transition-opacity"
-                        title="Edit"
-                      >
-                        ∴
-                      </button>
+                      <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startEdit('family', family.id, family.code, family.name)
+                          }}
+                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Edit"
+                        >
+                          ∴
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteFamily(family.id, family.name)
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                          title="Delete"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1230,16 +1545,28 @@ export default function BrowsePage() {
                         <span className="font-bold">{String(group.group_num).padStart(2, '0')}</span>
                         <span className="ml-2 text-sm">- {group.name}</span>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          startEdit('group', group.id || String(group.group_num), '', group.name)
-                        }}
-                        className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600 transition-opacity"
-                        title="Edit"
-                      >
-                        ∴
-                      </button>
+                      <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startEdit('group', group.id || String(group.group_num), '', group.name)
+                          }}
+                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Edit"
+                        >
+                          ∴
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteGroup(group.id || '', group.name)
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                          title="Delete"
+                        >
+                          ×
+                        </button>
+                      </div>
                       {group.task_count !== undefined && (
                         <div className="text-xs text-gray-500 mt-1">{group.task_count} tasks</div>
                       )}
@@ -1303,12 +1630,40 @@ export default function BrowsePage() {
                   </div>
                 </div>
               ))}
-              <button
-                onClick={() => router.push('/')}
-                className="w-full p-4 text-left hover:bg-gray-100 dark:hover:bg-gray-800 font-mono text-gray-500"
-              >
-                + CREATE
-              </button>
+              {!creatingTask ? (
+                <button
+                  onClick={() => setCreatingTask(true)}
+                  className="w-full p-4 text-left hover:bg-gray-100 dark:hover:bg-gray-800 font-mono text-gray-500"
+                >
+                  + CREATE
+                </button>
+              ) : (
+                <div className="p-4 bg-gray-100 dark:bg-gray-800">
+                  <input
+                    type="text"
+                    placeholder="Task Number"
+                    value={taskNum}
+                    onChange={(e) => setTaskNum(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                    className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
+                    maxLength={2}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Task Title"
+                    value={taskTitle}
+                    onChange={(e) => setTaskTitle(e.target.value)}
+                    className="w-full mb-2 px-2 py-1 font-mono bg-white dark:bg-gray-700 rounded"
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={createTask} className="px-3 py-1 bg-blue-600 text-white rounded">Create</button>
+                    <button onClick={() => {
+                      setCreatingTask(false)
+                      setTaskTitle('')
+                      setTaskNum('')
+                    }} className="px-3 py-1 bg-gray-400 text-white rounded">Cancel</button>
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div className="p-4 text-gray-400 text-center font-mono">Select a Group</div>
