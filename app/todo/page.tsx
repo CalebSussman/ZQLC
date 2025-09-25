@@ -141,9 +141,9 @@ export default function TodoPage() {
 
   const getStatusIcon = (status: string) => {
     switch(status) {
-      case 'C': return '■'
-      case 'X': return '■'
-      default: return '□'
+      case 'C': return '☑'  // Checked box for completed
+      case 'X': return '☒'  // X'd box for cancelled
+      default: return '☐'   // Empty checkbox for active
     }
   }
 
@@ -153,9 +153,28 @@ export default function TodoPage() {
       case 'P': return 'text-yellow-600'
       case 'D': return 'text-green-600'
       case 'F': return 'text-gray-600'
-      case 'C': return 'text-gray-400 line-through'
-      case 'X': return 'text-red-400 line-through'
+      case 'C': return 'text-green-600'  // Completed - green, no strikethrough
+      case 'X': return 'text-red-400'    // Cancelled - red, no strikethrough
       default: return ''
+    }
+  }
+
+  async function removeTaskFromCard(taskId: string) {
+    if (!currentCard) return
+
+    try {
+      const { error } = await supabase
+        .from('task_cards')
+        .delete()
+        .eq('task_id', taskId)
+        .eq('card_id', currentCard.id)
+
+      if (error) throw error
+
+      // Reload tasks to update the display
+      loadCardTasks()
+    } catch (error) {
+      console.error('Error removing task from card:', error)
     }
   }
 
@@ -185,23 +204,40 @@ export default function TodoPage() {
           {cardTasks.map((task) => (
             <div
               key={task.id}
-              onClick={() => toggleTaskStatus(task)}
-              className={`p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-300 dark:border-gray-700 hover:shadow-lg transition-all cursor-pointer font-mono ${
+              className={`group p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-300 dark:border-gray-700 hover:shadow-lg transition-all font-mono ${
                 getStatusColor(task.current_status)
               }`}
             >
               <div className="flex items-start">
-                <span className="text-2xl mr-3">{getStatusIcon(task.current_status)}</span>
-                <div className="flex-1">
+                <span
+                  className="text-2xl mr-3 cursor-pointer hover:scale-110 transition-transform"
+                  onClick={() => toggleTaskStatus(task)}
+                >
+                  {getStatusIcon(task.current_status)}
+                </span>
+                <div className="flex-1 cursor-pointer" onClick={() => toggleTaskStatus(task)}>
                   <div className="flex items-baseline">
                     <span className="font-bold text-lg mr-2">[{task.current_status}]</span>
                     <span className="font-bold mr-3">{task.base_code}</span>
                     <span className="text-gray-600 dark:text-gray-400">&quot;{task.title}&quot;</span>
                   </div>
                   {task.current_status === 'C' && (
-                    <div className="text-xs text-gray-500 mt-1">(completed)</div>
+                    <div className="text-xs text-green-600 dark:text-green-400 mt-1">✓ completed</div>
+                  )}
+                  {task.current_status === 'X' && (
+                    <div className="text-xs text-red-400 mt-1">✗ cancelled</div>
                   )}
                 </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    removeTaskFromCard(task.task_id)
+                  }}
+                  className="opacity-0 group-hover:opacity-100 ml-2 px-2 py-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-all"
+                  title="Remove from card"
+                >
+                  ×
+                </button>
               </div>
             </div>
           ))}
