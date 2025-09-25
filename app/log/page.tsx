@@ -59,6 +59,7 @@ export default function LogPage() {
   // SOA state
   const [showSOA, setShowSOA] = useState(false)
   const [soaContent, setSOAContent] = useState<string>('')
+  const [soaJSXContent, setSOAJSXContent] = useState<JSX.Element | null>(null)
   const [isGeneratingSOA, setIsGeneratingSOA] = useState(false)
 
   // Refs
@@ -332,83 +333,159 @@ export default function LogPage() {
         }
       })
 
-      // Generate visual content with ASCII art
-      const dateFormatted = currentDate.toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      })
+      // Generate JSX content for proper card interface
+      const totalEntries = Object.values(universeGroups).reduce((sum, group) => sum + group.entries.length, 0)
+      const uniqueTasks = new Set(Object.values(universeGroups).flatMap(group =>
+        group.entries.map(e => e.task_code)
+      )).size
 
-      let content = `╔════════════════════════════════════════════════════════════════╗\n`
-      content += `║                    DAILY ACTIVITY REPORT                      ║\n`
-      content += `╠════════════════════════════════════════════════════════════════╣\n`
-      content += `║ Date: ${dateFormatted.padEnd(53)} ║\n`
-      content += `╚════════════════════════════════════════════════════════════════╝\n\n`
+      const content = (
+        <div className="space-y-6">
+          {/* Summary Header */}
+          <div className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{totalEntries}</div>
+                <div className="text-sm text-blue-800 dark:text-blue-300 font-mono">Activities</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{uniqueTasks}</div>
+                <div className="text-sm text-blue-800 dark:text-blue-300 font-mono">Tasks</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{Object.keys(universeGroups).length}</div>
+                <div className="text-sm text-blue-800 dark:text-blue-300 font-mono">Universes</div>
+              </div>
+            </div>
+          </div>
 
-      if (Object.keys(universeGroups).length === 0) {
-        content += `┌─────────────────────────────────────────┐\n`
-        content += `│           NO ACTIVITIES LOGGED          │\n`
-        content += `│              FOR THIS DATE              │\n`
-        content += `└─────────────────────────────────────────┘\n`
-      } else {
-        Object.entries(universeGroups).forEach(([universeName, group], universeIndex) => {
-          const universeIcon = universeName === 'Work' ? '🏢' :
-                              universeName === 'Personal' ? '👤' :
-                              universeName === 'Home' ? '🏠' : '📁'
+          {/* Universe Groups */}
+          {Object.keys(universeGroups).length === 0 ? (
+            <div className="text-center py-8">
+              <div className="text-gray-500 dark:text-gray-400 font-mono">
+                No activities logged for this date
+              </div>
+            </div>
+          ) : (
+            Object.entries(universeGroups).map(([universeName, group]) => {
+              const universeColors = {
+                'Work': 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700',
+                'Personal': 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700',
+                'Home': 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700'
+              }
+              const universeColor = universeColors[universeName as keyof typeof universeColors] || 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
 
-          content += `\n┌─ ${universeIcon} ${universeName.toUpperCase()} UNIVERSE ─────────────────────────────────┐\n`
+              return (
+                <div key={universeName} className={`rounded-lg p-4 border ${universeColor}`}>
+                  <h3 className="font-mono font-bold text-lg mb-3">{universeName.toUpperCase()}</h3>
+                  <div className="space-y-2">
+                    {group.entries.map((entry, index) => {
+                      const duration = entry.end_time
+                        ? `${entry.start_time} - ${entry.end_time}`
+                        : `${entry.start_time} (ongoing)`
 
-          group.entries.forEach((entry, entryIndex) => {
-            const duration = entry.end_time
-              ? `${entry.start_time}-${entry.end_time}`
-              : `${entry.start_time}→`
+                      const statusColors = {
+                        'R': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+                        'P': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+                        'D': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+                        'C': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+                        'F': 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300',
+                        'X': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                      }
+                      const statusColor = statusColors[entry.status_code as keyof typeof statusColors] || 'bg-gray-100 text-gray-800'
 
-            const statusIcon = entry.status_code === 'R' ? '📥' :
-                              entry.status_code === 'P' ? '⏳' :
-                              entry.status_code === 'D' ? '📤' :
-                              entry.status_code === 'C' ? '✅' :
-                              entry.status_code === 'F' ? '📁' : '❌'
+                      return (
+                        <div key={index} className="bg-white dark:bg-gray-800 rounded p-3 border border-gray-200 dark:border-gray-700">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-1 rounded text-xs font-mono ${statusColor}`}>
+                                [{entry.fullStatusCode}]
+                              </span>
+                              <span className="font-mono text-sm text-gray-600 dark:text-gray-400">{duration}</span>
+                            </div>
+                          </div>
+                          <div className="font-medium">{entry.taskTitle}</div>
+                          {entry.work_description && entry.work_description !== entry.taskTitle && (
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              {entry.work_description}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="mt-3 text-sm text-gray-600 dark:text-gray-400 font-mono">
+                    {group.entries.length} activities in {universeName}
+                  </div>
+                </div>
+              )
+            })
+          )}
 
-            const connector = entryIndex === group.entries.length - 1 ? '└─' : '├─'
+          {/* Footer */}
+          <div className="text-center text-sm text-gray-500 dark:text-gray-400 font-mono">
+            Generated on {new Date().toLocaleString()}
+            <br />
+            ATOL Semantic Ledger v1.0
+          </div>
+        </div>
+      )
 
-            content += `│ ${connector} ${statusIcon} [${entry.fullStatusCode}] ${entry.taskTitle}\n`
-            content += `│    ⏰ ${duration}`
-            if (entry.work_description && entry.work_description !== entry.taskTitle) {
-              content += ` │ ${entry.work_description.substring(0, 40)}`
-              if (entry.work_description.length > 40) content += '...'
-            }
-            content += '\n'
-          })
+      // Set JSX content for display
+      setSOAJSXContent(content)
 
-          content += `└──────────────────────────────── ${group.entries.length} activities ─┘\n`
-        })
+      // Generate markdown content for download
+      const markdownContent = generateMarkdownSOA(entries)
+      setSOAContent(markdownContent)
 
-        // Add visual summary
-        const totalEntries = Object.values(universeGroups).reduce((sum, group) => sum + group.entries.length, 0)
-        const uniqueTasks = new Set(Object.values(universeGroups).flatMap(group =>
-          group.entries.map(e => e.task_code)
-        )).size
-
-        content += `\n╔═══════════════════ SUMMARY ════════════════════╗\n`
-        content += `║ Total Activities: ${totalEntries.toString().padStart(2)} 📊                    ║\n`
-        content += `║ Unique Tasks:     ${uniqueTasks.toString().padStart(2)} 📋                    ║\n`
-        content += `║ Universes:        ${Object.keys(universeGroups).length.toString().padStart(2)} 🌌                    ║\n`
-        content += `╚════════════════════════════════════════════════╝\n`
-      }
-
-      content += `\n┌─────────────────────────────────────────────────┐\n`
-      content += `│ Generated: ${new Date().toLocaleString().padEnd(32)} │\n`
-      content += `│ System: ATOL Semantic Ledger v1.0              │\n`
-      content += `└─────────────────────────────────────────────────┘`
-
-      setSOAContent(content)
       setShowSOA(true)
     } catch (error) {
       console.error('Error generating SOA:', error)
     } finally {
       setIsGeneratingSOA(false)
     }
+  }
+
+  // Generate markdown content for SOA download
+  const generateMarkdownSOA = (entries: CalendarEntry[]): string => {
+    const universeMap = new Map<string, CalendarEntry[]>()
+    entries.forEach(entry => {
+      const universe = entry.task_code?.substring(0, 1) || 'Other'
+      if (!universeMap.has(universe)) {
+        universeMap.set(universe, [])
+      }
+      universeMap.get(universe)?.push(entry)
+    })
+
+    const totalEntries = entries.length
+    const statusCounts = entries.reduce((acc, entry) => {
+      acc[entry.status_code] = (acc[entry.status_code] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    let markdown = `# Statement of Activities\n`
+    markdown += `## Date: ${currentDate.toLocaleDateString()}\n\n`
+    markdown += `### Summary\n`
+    markdown += `- **Total Activities:** ${totalEntries}\n`
+    markdown += `- **Received:** ${statusCounts.R || 0}\n`
+    markdown += `- **Pending:** ${statusCounts.P || 0}\n`
+    markdown += `- **Delivered:** ${statusCounts.D || 0}\n`
+    markdown += `- **Completed:** ${statusCounts.C || 0}\n`
+    markdown += `- **Cancelled:** ${statusCounts.X || 0}\n\n`
+
+    Array.from(universeMap.entries()).forEach(([universe, universeEntries]) => {
+      const universeName = universe === 'W' ? 'Work' : universe === 'A' ? 'Admin' : universe === 'C' ? 'Communication' : universe
+      markdown += `### ${universeName} Universe\n\n`
+      universeEntries.forEach(entry => {
+        const duration = entry.end_time ?
+          Math.round((timeToMinutes(entry.end_time) - timeToMinutes(entry.start_time)) / 15) * 15 : 30
+        markdown += `- **${entry.task_code}** [${entry.status_code}] ${entry.work_description} (${entry.start_time} - ${entry.end_time || 'ongoing'}, ${duration}m)\n`
+      })
+      markdown += '\n'
+    })
+
+    markdown += `\n---\nGenerated on ${new Date().toLocaleString()}\nATOL Semantic Ledger v1.0\n`
+    return markdown
   }
 
   // Download SOA as markdown file
@@ -1143,12 +1220,12 @@ export default function LogPage() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4">
           <div className="bg-white dark:bg-gray-900 rounded-lg w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] flex flex-col">
             {/* Header */}
-            <div className="p-4 sm:p-6 border-b-2 border-gray-900 dark:border-gray-300">
+            <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg sm:text-xl font-mono font-bold">╔═══ STATEMENT OF ACTIVITIES ═══╗</h3>
+                  <h3 className="text-lg sm:text-xl font-mono font-bold">Statement of Activities</h3>
                   <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 font-mono">
-                    ║ {formatDate()} ║
+                    {formatDate()}
                   </div>
                 </div>
                 <button
@@ -1162,18 +1239,16 @@ export default function LogPage() {
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-              <div className="bg-[#F8F7F4] dark:bg-[#0A0A0B] border-2 border-gray-900 dark:border-gray-300 rounded p-3 sm:p-4 font-mono text-xs sm:text-sm">
-                <div className="whitespace-pre-wrap">{soaContent}</div>
-              </div>
+              {soaJSXContent}
             </div>
 
             {/* Actions */}
-            <div className="p-4 sm:p-6 border-t-2 border-gray-900 dark:border-gray-300 flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-2 sm:gap-3">
               <button
                 onClick={downloadSOA}
                 className="flex-1 bg-green-600 text-white py-3 px-4 rounded hover:bg-green-700 transition-colors font-mono text-xs sm:text-sm"
               >
-                [↓ DOWNLOAD .MD]
+                [DOWNLOAD .MD]
               </button>
               <button
                 onClick={() => {
@@ -1182,13 +1257,13 @@ export default function LogPage() {
                 }}
                 className="flex-1 bg-blue-600 text-white py-3 px-4 rounded hover:bg-blue-700 transition-colors font-mono text-xs sm:text-sm"
               >
-                [📋 COPY]
+                [COPY]
               </button>
               <button
                 onClick={() => setShowSOA(false)}
                 className="flex-1 bg-gray-500 text-white py-3 px-4 rounded hover:bg-gray-600 transition-colors font-mono text-xs sm:text-sm"
               >
-                [✕ CLOSE]
+                [CLOSE]
               </button>
             </div>
           </div>
