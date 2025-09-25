@@ -200,14 +200,16 @@ export default function BrowsePage() {
   }
 
 
-  async function createUniverse() {
+  async function createUniverse(code?: string, name?: string) {
+    const finalCode = code || universeCode
+    const finalName = name || universeName
 
-    if (!universeCode?.trim() || !universeName?.trim()) {
+    if (!finalCode?.trim() || !finalName?.trim()) {
       alert('Please enter both a code and name')
       return
     }
 
-    const trimmedCode = universeCode.trim().toUpperCase().slice(0, 1)
+    const trimmedCode = finalCode.trim().toUpperCase().slice(0, 1)
 
     // Check for duplicate codes before attempting to create
     const existingUniverse = universes.find(u => u.code === trimmedCode)
@@ -222,7 +224,7 @@ export default function BrowsePage() {
         .from('universes')
         .insert({
           code: trimmedCode,
-          name: universeName.trim(),
+          name: finalName.trim(),
           color: '#' + Math.floor(Math.random()*16777215).toString(16),
           display_order: universes.length + 1
         })
@@ -254,13 +256,16 @@ export default function BrowsePage() {
     }
   }
 
-  async function createPhylum() {
-    if (!phylumCode?.trim() || !phylumName?.trim() || !selectedUniverse) {
+  async function createPhylum(code?: string, name?: string) {
+    const finalCode = code || phylumCode
+    const finalName = name || phylumName
+
+    if (!finalCode?.trim() || !finalName?.trim() || !selectedUniverse) {
       alert('Please enter both a code and name')
       return
     }
 
-    const trimmedCode = phylumCode.trim().toUpperCase().slice(0, 1)
+    const trimmedCode = finalCode.trim().toUpperCase().slice(0, 1)
 
     // Check for duplicate codes
     const existingPhylum = phylums.find(p => p.code === trimmedCode)
@@ -275,7 +280,7 @@ export default function BrowsePage() {
         .insert({
           universe_id: selectedUniverse.id,
           code: trimmedCode,
-          name: phylumName.trim()
+          name: finalName.trim()
         })
         .select()
         .single()
@@ -298,13 +303,16 @@ export default function BrowsePage() {
     }
   }
 
-  async function createFamily() {
-    if (!familyCode?.trim() || !familyName?.trim() || !selectedPhylum) {
+  async function createFamily(code?: string, name?: string) {
+    const finalCode = code || familyCode
+    const finalName = name || familyName
+
+    if (!finalCode?.trim() || !finalName?.trim() || !selectedPhylum) {
       alert('Please enter both a code and name')
       return
     }
 
-    const trimmedCode = familyCode.trim().toUpperCase().slice(0, 1)
+    const trimmedCode = finalCode.trim().toUpperCase().slice(0, 1)
 
     // Check for duplicate codes
     const existingFamily = families.find(f => f.code === trimmedCode)
@@ -319,7 +327,7 @@ export default function BrowsePage() {
         .insert({
           phylum_id: selectedPhylum.id,
           code: trimmedCode,
-          name: familyName.trim()
+          name: finalName.trim()
         })
         .select()
         .single()
@@ -342,13 +350,16 @@ export default function BrowsePage() {
     }
   }
 
-  async function createGroup() {
-    if (!newGroupNum?.trim() || !groupName?.trim() || !selectedPhylum || !selectedUniverse) {
+  async function createGroup(code?: string, name?: string) {
+    const finalCode = code || newGroupNum
+    const finalName = name || groupName
+
+    if (!finalCode?.trim() || !finalName?.trim() || !selectedPhylum || !selectedUniverse) {
       alert('Please enter both a group number and name')
       return
     }
 
-    const groupNumber = parseInt(newGroupNum.trim())
+    const groupNumber = parseInt(finalCode.trim())
     if (isNaN(groupNumber) || groupNumber < 1 || groupNumber > 99) {
       alert('Group number must be between 1 and 99')
       return
@@ -369,7 +380,7 @@ export default function BrowsePage() {
           phylum_id: selectedPhylum.id,
           family_id: selectedFamily?.id || null,
           group_num: groupNumber,
-          name: groupName.trim()
+          name: finalName.trim()
         })
         .select()
         .single()
@@ -1268,9 +1279,7 @@ export default function BrowsePage() {
                 setUniverseName('')
               }}
               onCreate={async (code, name) => {
-                setUniverseCode(code)
-                setUniverseName(name)
-                await createUniverse()
+                await createUniverse(code, name)
               }}
             />
           )}
@@ -1377,9 +1386,7 @@ export default function BrowsePage() {
                     setPhylumName('')
                   }}
                   onCreate={async (code, name) => {
-                    setPhylumCode(code)
-                    setPhylumName(name)
-                    await createPhylum()
+                    await createPhylum(code, name)
                   }}
                 />
               )}
@@ -1490,9 +1497,7 @@ export default function BrowsePage() {
                     setFamilyName('')
                   }}
                   onCreate={async (code, name) => {
-                    setFamilyCode(code)
-                    setFamilyName(name)
-                    await createFamily()
+                    await createFamily(code, name)
                   }}
                 />
               )}
@@ -1598,9 +1603,7 @@ export default function BrowsePage() {
                     setGroupName('')
                   }}
                   onCreate={async (code, name) => {
-                    setNewGroupNum(code)
-                    setGroupName(name)
-                    await createGroup()
+                    await createGroup(code, name)
                   }}
                 />
               )}
