@@ -63,6 +63,9 @@ export default function LogPage() {
   const [searchResults, setSearchResults] = useState<Task[]>([])
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('')
 
+  // Notes state
+  const [noteType, setNoteType] = useState<'task' | 'step' | 'outcome'>('step')
+
   // SOA state
   const [showSOA, setShowSOA] = useState(false)
   const [soaContent, setSOAContent] = useState<string>('')
@@ -673,7 +676,7 @@ export default function LogPage() {
               .from('task_notes')
               .insert({
                 task_id: task.id,
-                type: 'step',
+                type: noteType,
                 content: updates.work_description || 'Note cleared via calendar'
               })
 
@@ -1199,7 +1202,12 @@ export default function LogPage() {
                         <div className="font-mono font-bold truncate">
                           [{entry.status_code}] {entry.task_code}
                         </div>
-                        <div className="opacity-90 text-xs">
+                        {entry.task_info?.title && (
+                          <div className="opacity-90 text-xs truncate font-medium">
+                            {entry.task_info.title}
+                          </div>
+                        )}
+                        <div className="opacity-75 text-xs">
                           {entry.start_time} - {entry.end_time || 'ongoing'}
                         </div>
                       </div>
@@ -1432,13 +1440,47 @@ export default function LogPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-mono mb-1">Work Notes</label>
+                <label className="block text-sm font-mono mb-2">Work Notes</label>
+
+                <div className="flex gap-2 mb-3">
+                  <button
+                    onClick={() => setNoteType('task')}
+                    className={`px-3 py-1 rounded text-xs ${
+                      noteType === 'task'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    Task Note
+                  </button>
+                  <button
+                    onClick={() => setNoteType('step')}
+                    className={`px-3 py-1 rounded text-xs ${
+                      noteType === 'step'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    Step Note
+                  </button>
+                  <button
+                    onClick={() => setNoteType('outcome')}
+                    className={`px-3 py-1 rounded text-xs ${
+                      noteType === 'outcome'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    Outcome Note
+                  </button>
+                </div>
+
                 <textarea
                   value={selectedEntry.work_description}
                   onChange={(e) => setSelectedEntry({...selectedEntry, work_description: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800"
                   rows={3}
-                  placeholder="Add work notes or progress details..."
+                  placeholder={`Add a ${noteType} note...`}
                 />
               </div>
 
