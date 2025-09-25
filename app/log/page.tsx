@@ -737,55 +737,61 @@ export default function LogPage() {
     <div className="min-h-screen bg-[#F8F7F4] dark:bg-[#0A0A0B]">
       {/* Header */}
       <div className="border-b-2 border-gray-900 dark:border-gray-300 p-4">
-        <div className={`font-mono ${isMobile ? 'space-y-3' : 'flex items-center justify-between'}`}>
-          <h1 className={`text-xl font-bold ${isMobile ? 'text-center' : ''}`}>{formatDate()}</h1>
-
-          {/* Mobile Layout: Stacked */}
+        <div className="font-mono">
+          {/* Mobile Layout: Date left, controls right */}
           {isMobile ? (
-            <div className="flex flex-col items-center space-y-2">
-              <button
-                onClick={() => setCurrentDate(new Date())}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-mono"
-              >
-                TODAY
-              </button>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => navigateDate('prev')}
-                  className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-                >
-                  [&lt;]
-                </button>
-                <button
-                  onClick={() => navigateDate('next')}
-                  className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-                >
-                  [&gt;]
-                </button>
-              </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => setShowTaskPanel(!showTaskPanel)}
-                  className={`px-3 py-1 rounded text-xs font-mono transition-colors ${
-                    showTaskPanel
-                      ? 'bg-green-600 hover:bg-green-700 text-white'
-                      : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  [TASKS]
-                </button>
-                <button
-                  onClick={generateSOA}
-                  disabled={isGeneratingSOA}
-                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded text-xs font-mono transition-colors"
-                >
-                  {isGeneratingSOA ? '[GENERATING...]' : '[SOA]'}
-                </button>
+            <div className="flex items-start justify-between">
+              <h1 className="text-lg font-bold flex-1">{formatDate()}</h1>
+              <div className="flex items-start space-x-3">
+                <div className="flex flex-col items-center space-y-1">
+                  <button
+                    onClick={() => setCurrentDate(new Date())}
+                    className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-mono"
+                  >
+                    TODAY
+                  </button>
+                  <div className="flex space-x-1">
+                    <button
+                      onClick={() => navigateDate('prev')}
+                      className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-xs"
+                    >
+                      &lt;
+                    </button>
+                    <button
+                      onClick={() => navigateDate('next')}
+                      className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-xs"
+                    >
+                      &gt;
+                    </button>
+                  </div>
+                </div>
+                <div className="w-px h-10 bg-gray-400 mx-2" />
+                <div className="flex flex-col space-y-1">
+                  <button
+                    onClick={() => setShowTaskPanel(!showTaskPanel)}
+                    className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
+                      showTaskPanel
+                        ? 'bg-green-600 hover:bg-green-700 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    TASKS
+                  </button>
+                  <button
+                    onClick={generateSOA}
+                    disabled={isGeneratingSOA}
+                    className="px-2 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded text-xs font-mono transition-colors"
+                  >
+                    {isGeneratingSOA ? 'GEN...' : 'SOA'}
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
             /* Desktop Layout: Horizontal */
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center justify-between">
+              <h1 className="text-xl font-bold">{formatDate()}</h1>
+              <div className="flex items-center space-x-2">
               <button
                 onClick={() => navigateDate('prev')}
                 className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
@@ -822,6 +828,7 @@ export default function LogPage() {
               >
                 {isGeneratingSOA ? '[GENERATING...]' : '[SOA]'}
               </button>
+              </div>
             </div>
           )}
         </div>
@@ -893,7 +900,11 @@ export default function LogPage() {
               {generateTimeSlots().map((slot) => (
                 <div
                   key={slot.time}
-                  className={`relative border-b border-gray-100 dark:border-gray-800 transition-all duration-300 ease-out ${
+                  className={`relative border-b transition-all duration-300 ease-out ${
+                    slot.quarter === 0
+                      ? 'border-gray-400 dark:border-gray-500' // Emphasize hour lines
+                      : 'border-gray-100 dark:border-gray-800' // Light quarter-hour lines
+                  } ${
                     hoveredTimeSlot === slot.time && dragState.isDragging ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                   } ${!dragState.isDragging ? 'hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}`}
                   style={{
@@ -1170,7 +1181,7 @@ export default function LogPage() {
                 <div className="text-xs text-gray-500 mt-1">Task code cannot be changed</div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-mono mb-1">Start Time</label>
                   <input
