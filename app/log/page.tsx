@@ -101,21 +101,35 @@ export default function LogPage() {
 
       if (calendarError) throw calendarError
 
-      // Then enrich them with current task status
+      // Then enrich them with current task status and latest notes
       const enrichedEntries = await Promise.all((calendarEntries || []).map(async (entry) => {
-        // Get current task status
+        // Get current task status and info
         const { data: taskData } = await supabase
           .from('task_details')
           .select('id, code, title, current_status, current_status_name')
           .eq('code', entry.task_code)
           .single()
 
+        // Get latest task entry note
+        let latestNote = ''
+        if (taskData?.id) {
+          const { data: latestEntry } = await supabase
+            .from('task_entries')
+            .select('note')
+            .eq('task_id', taskData.id)
+            .order('entry_timestamp', { ascending: false })
+            .limit(1)
+            .single()
+
+          latestNote = latestEntry?.note || ''
+        }
+
         return {
           ...entry,
           // Override status_code with current task status if available
           status_code: taskData?.current_status || entry.status_code,
-          // Use work_description if available, otherwise fall back to task title
-          work_description: entry.work_description || taskData?.title || entry.task_code,
+          // Use latest task entry note, fallback to work_description, then task title
+          work_description: latestNote || entry.work_description || taskData?.title || entry.task_code,
           // Keep task info for reference
           task_info: taskData
         }
@@ -549,7 +563,7 @@ export default function LogPage() {
         .from('calendar_entries')
         .insert({
           task_code: taskCode,
-          status_code: 'P',
+          status_code: (task as any).current_status || 'P',
           work_description: task.title,
           date: currentDate.toISOString().split('T')[0],
           start_time: timeSlot,
@@ -560,10 +574,10 @@ export default function LogPage() {
 
       if (calendarError) throw calendarError
 
-      // Create corresponding task entry
+      // Create corresponding task entry with task's current status
       const { error: taskError } = await supabase.rpc('create_task_entry', {
         p_task_id: task.id,
-        p_status_code: 'P',
+        p_status_code: (task as any).current_status || 'P', // Use current status or fall back to P
         p_note: `Scheduled: ${timeSlot} - ${endTime} | ${task.title}`,
         p_entry_timestamp: new Date().toISOString()
       })
@@ -599,20 +613,33 @@ export default function LogPage() {
 
       if (updateError) throw updateError
 
-      // If status was updated, create a task entry record
-      if (updates.status_code && updates.status_code !== currentEntry.status_code) {
-        // Find the task by task_code
+      // If status or work description was updated, create a task entry record
+      if ((updates.status_code && updates.status_code !== currentEntry.status_code) ||
+          (updates.work_description !== undefined && updates.work_description !== currentEntry.work_description)) {
+
+        // Find the task by base_code (since calendar_entries store base codes)
         const { data: task } = await supabase
           .from('tasks')
           .select('id')
-          .eq('code', currentEntry.task_code)
+          .eq('base_code', currentEntry.task_code)
           .single()
 
         if (task) {
+          let note = ''
+
+          if (updates.status_code && updates.status_code !== currentEntry.status_code) {
+            note = `Status changed to ${updates.status_code} via calendar`
+          }
+
+          if (updates.work_description !== undefined && updates.work_description !== currentEntry.work_description) {
+            if (note) note += ' | '
+            note += `Note updated via calendar: ${updates.work_description || 'cleared'}`
+          }
+
           const { error: taskError } = await supabase.rpc('create_task_entry', {
             p_task_id: task.id,
-            p_status_code: updates.status_code,
-            p_note: `Status changed to ${updates.status_code} via calendar | ${updates.work_description || currentEntry.work_description}`,
+            p_status_code: updates.status_code || currentEntry.status_code,
+            p_note: note,
             p_entry_timestamp: new Date().toISOString()
           })
 

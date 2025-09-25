@@ -223,6 +223,27 @@ export default function CreatePage() {
           p_entry_timestamp: timestamp.toISOString()
         })
 
+        // Create calendar entry for today with 10-minute duration
+        const now = new Date()
+        const startTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
+
+        // Calculate end time (10 minutes later)
+        const endDate = new Date(now.getTime() + 10 * 60 * 1000)
+        const endTime = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`
+
+        await supabase
+          .from('calendar_entries')
+          .insert({
+            task_code: baseCode,
+            status_code: selectedStatus.code,
+            work_description: taskName,
+            date: now.toISOString().split('T')[0], // Today's date
+            start_time: startTime,
+            end_time: endTime,
+            is_parallel: false,
+            track_number: 1
+          })
+
         // Add to current card
         const { data: currentCard } = await supabase
           .from('cards')
