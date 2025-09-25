@@ -515,7 +515,8 @@ export default function LogPage() {
       // Use base_code or truncate code to fit database constraint (varchar 20)
       const taskCode = task.base_code || task.code.substring(0, 20)
 
-      const { error } = await supabase
+      // Create calendar entry
+      const { error: calendarError } = await supabase
         .from('calendar_entries')
         .insert({
           task_code: taskCode,
@@ -528,7 +529,18 @@ export default function LogPage() {
           track_number: 1
         })
 
-      if (error) throw error
+      if (calendarError) throw calendarError
+
+      // Create corresponding task entry
+      const { error: taskError } = await supabase.rpc('create_task_entry', {
+        p_task_id: task.id,
+        p_status_code: 'P',
+        p_note: `Scheduled: ${timeSlot} - ${endTime} | ${task.title}`,
+        p_entry_timestamp: new Date().toISOString()
+      })
+
+      if (taskError) throw taskError
+
       loadEntries()
       setShowTaskSearch(false)
       setSearchQuery('')
@@ -541,12 +553,44 @@ export default function LogPage() {
 
   const updateEntry = async (entryId: string, updates: Partial<CalendarEntry>) => {
     try {
-      const { error } = await supabase
+      // Get the current entry to find the task
+      const { data: currentEntry } = await supabase
+        .from('calendar_entries')
+        .select('*')
+        .eq('id', entryId)
+        .single()
+
+      if (!currentEntry) throw new Error('Entry not found')
+
+      // Update calendar entry
+      const { error: updateError } = await supabase
         .from('calendar_entries')
         .update(updates)
         .eq('id', entryId)
 
-      if (error) throw error
+      if (updateError) throw updateError
+
+      // If status was updated, create a task entry record
+      if (updates.status_code && updates.status_code !== currentEntry.status_code) {
+        // Find the task by task_code
+        const { data: task } = await supabase
+          .from('tasks')
+          .select('id')
+          .eq('code', currentEntry.task_code)
+          .single()
+
+        if (task) {
+          const { error: taskError } = await supabase.rpc('create_task_entry', {
+            p_task_id: task.id,
+            p_status_code: updates.status_code,
+            p_note: `Status changed to ${updates.status_code} via calendar | ${updates.work_description || currentEntry.work_description}`,
+            p_entry_timestamp: new Date().toISOString()
+          })
+
+          if (taskError) console.error('Error creating task entry:', taskError)
+        }
+      }
+
       loadEntries()
     } catch (error) {
       console.error('Error updating entry:', error)
@@ -697,6 +741,15 @@ export default function LogPage() {
     })
   }
 
+  const formatDateStacked = () => {
+    const weekday = currentDate.toLocaleDateString('en-US', { weekday: 'long' })
+    const month = currentDate.toLocaleDateString('en-US', { month: 'long' })
+    const day = currentDate.getDate()
+    const year = currentDate.getFullYear()
+
+    return { weekday, month, dayYear: `${day}, ${year}` }
+  }
+
   // Calculate layout for entries in a time slot (colored bars)
   const getEntryBarLayout = (entry: CalendarEntry, entries: CalendarEntry[]) => {
     const entryIndex = entries.findIndex(e => e.id === entry.id)
@@ -741,7 +794,11 @@ export default function LogPage() {
           {/* Mobile Layout: Date left, controls right */}
           {isMobile ? (
             <div className="flex items-start justify-between">
-              <h1 className="text-lg font-bold flex-1">{formatDate()}</h1>
+              <div className="text-sm font-bold flex-1 leading-tight">
+                <div className="text-gray-600 dark:text-gray-400">{formatDateStacked().weekday}</div>
+                <div className="text-base">{formatDateStacked().month}</div>
+                <div className="text-gray-600 dark:text-gray-400">{formatDateStacked().dayYear}</div>
+              </div>
               <div className="flex items-start space-x-3">
                 <div className="flex flex-col items-center space-y-1">
                   <button
@@ -753,13 +810,13 @@ export default function LogPage() {
                   <div className="flex space-x-1">
                     <button
                       onClick={() => navigateDate('prev')}
-                      className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-xs"
+                      className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-sm"
                     >
                       &lt;
                     </button>
                     <button
                       onClick={() => navigateDate('next')}
-                      className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-xs"
+                      className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-sm"
                     >
                       &gt;
                     </button>
@@ -947,59 +1004,74 @@ export default function LogPage() {
                 </div>
               ))}
 
-              {/* Continuous task bars positioned absolutely */}
-              {getUniqueTaskEntries().map((taskEntry, taskIndex) =>
-                taskEntry.spans.map((span, spanIndex) => {
-                  const barLayout = getTaskBarLayout(span, taskIndex, getUniqueTaskEntries().length)
+              {/* Individual calendar entries positioned absolutely */}
+              {entries.map((entry, entryIndex) => {
+                const startMinutes = timeToMinutes(entry.start_time)
+                const endMinutes = entry.end_time ? timeToMinutes(entry.end_time) : startMinutes + 60
 
-                  return (
-                    <div
-                      key={`${taskEntry.taskCode}-${spanIndex}`}
-                      className={`absolute transition-all duration-200 cursor-pointer hover:opacity-80 rounded ${
-                        taskEntry.hasMultipleStatuses
-                          ? 'bg-gradient-to-r from-blue-500 via-yellow-500 to-green-500' // Multi-status gradient
-                          : getStatusColor(taskEntry.primaryEntry.status_code)
-                      } ${
-                        hoveredEntry?.task_code === taskEntry.taskCode ? 'ring-2 ring-white ring-opacity-50' : ''
-                      }`}
-                      style={{
-                        ...barLayout,
-                        zIndex: 30,
-                        margin: '2px'
-                      }}
-                      onMouseEnter={() => {
-                        setHoveredEntry(taskEntry.primaryEntry)
-                      }}
-                      onMouseLeave={() => setHoveredEntry(null)}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setSelectedEntry(span.entries[0]) // Click on first entry in span
-                      }}
-                    >
-                      <div className={`absolute inset-0 flex items-center transition-all duration-200 ${
-                        hoveredEntry?.task_code === taskEntry.taskCode
-                          ? 'justify-end pr-4' // Move to right when editing/hovered
-                          : 'justify-center' // Centered by default
-                      }`}>
-                        <div className="text-xs text-white text-center">
-                          <div className="font-mono font-bold truncate">
-                            {formatStatusCode(taskEntry.primaryEntry)}
-                          </div>
-                          <div className="opacity-90 text-xs">
-                            {span.start} - {span.end}
-                          </div>
-                          {span.entries.length > 1 && (
-                            <div className="opacity-75 text-xs">
-                              {span.entries.length} entries
-                            </div>
-                          )}
+                // Calculate position from top based on start time
+                let top = 0
+                const slots = generateTimeSlots()
+                for (const slot of slots) {
+                  if (slot.minutes >= startMinutes) break
+                  top += slot.height
+                }
+
+                // Calculate height based on duration and magnification
+                let height = 0
+                for (const slot of slots) {
+                  if (slot.minutes >= startMinutes && slot.minutes < endMinutes) {
+                    height += slot.height
+                  }
+                }
+
+                const barLayout = {
+                  top: `${top}px`,
+                  height: `${Math.max(height - 4, 20)}px`, // Minimum height of 20px
+                  left: '50px',
+                  right: '8px'
+                }
+
+                return (
+                  <div
+                    key={entry.id}
+                    className={`absolute transition-all duration-200 cursor-pointer hover:opacity-80 rounded ${
+                      getStatusColor(entry.status_code)
+                    } ${
+                      hoveredEntry?.id === entry.id ? 'ring-2 ring-white ring-opacity-50' : ''
+                    }`}
+                    style={{
+                      ...barLayout,
+                      zIndex: 30,
+                      margin: '2px'
+                    }}
+                    onMouseEnter={() => {
+                      setHoveredEntry(entry)
+                    }}
+                    onMouseLeave={() => setHoveredEntry(null)}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setSelectedEntry(entry)
+                    }}
+                  >
+                    <div className={`absolute inset-0 flex items-center transition-all duration-200 ${
+                      hoveredEntry?.id === entry.id
+                        ? 'justify-end pr-4' // Move to right when editing/hovered
+                        : 'justify-center' // Centered by default
+                    }`}>
+                      <div className="text-xs text-white text-center">
+                        <div className="font-mono font-bold truncate">
+                          [{entry.status_code}] {entry.task_code}
+                        </div>
+                        <div className="opacity-90 text-xs">
+                          {entry.start_time} - {entry.end_time || 'ongoing'}
                         </div>
                       </div>
                     </div>
-                  )
-                })
-              )}
+                  </div>
+                )
+              })}
 
               {/* Click hint */}
               {!dragState.isDragging && entries.length === 0 && (
