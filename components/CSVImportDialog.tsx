@@ -138,7 +138,7 @@ export default function CSVImportDialog({ isOpen, onClose, onImportComplete }: C
 
     try {
       // If there are tasks to delete and user hasn't confirmed, require confirmation
-      if (validationResult.tasksToDelete.length > 0 && !confirmDeletion) {
+      if ((validationResult.tasksToDelete?.length ?? 0) > 0 && !confirmDeletion) {
         setImportError('Please confirm deletion of existing tasks before proceeding')
         setIsImporting(false)
         return
@@ -321,16 +321,16 @@ export default function CSVImportDialog({ isOpen, onClose, onImportComplete }: C
                   </div>
 
                   {/* Deletion Warning */}
-                  {validationResult.tasksToDelete.length > 0 && (
+                  {(validationResult.tasksToDelete?.length ?? 0) > 0 && (
                     <div className="mt-4 space-y-2">
                       <div className="text-red-400">⚠️ DELETION DETECTED:</div>
                       <div className="ml-2">
                         <div className="text-red-400">
-                          • {validationResult.tasksToDelete.length} TASKS IN DATABASE NOT IN IMPORT FILE
+                          • {validationResult.tasksToDelete?.length ?? 0} TASKS IN DATABASE NOT IN IMPORT FILE
                         </div>
                         {showDeletePreview ? (
                           <div className="ml-4 text-sm space-y-1 max-h-32 overflow-y-auto">
-                            {validationResult.tasksToDelete.map((task, i) => (
+                            {validationResult.tasksToDelete?.map((task, i) => (
                               <div key={i}>
                                 - {task.base_code} &quot;{task.title}&quot; ({task.current_status})
                               </div>
@@ -338,17 +338,17 @@ export default function CSVImportDialog({ isOpen, onClose, onImportComplete }: C
                           </div>
                         ) : (
                           <div className="ml-4 text-sm space-y-1">
-                            {validationResult.tasksToDelete.slice(0, 3).map((task, i) => (
+                            {validationResult.tasksToDelete?.slice(0, 3).map((task, i) => (
                               <div key={i}>
                                 - {task.base_code} &quot;{task.title}&quot;
                               </div>
                             ))}
-                            {validationResult.tasksToDelete.length > 3 && (
+                            {(validationResult.tasksToDelete?.length ?? 0) > 3 && (
                               <button
                                 onClick={() => setShowDeletePreview(true)}
                                 className="text-yellow-400 hover:text-yellow-300 underline"
                               >
-                                ({validationResult.tasksToDelete.length - 3} more tasks - click to expand)
+                                ({(validationResult.tasksToDelete?.length ?? 0) - 3} more tasks - click to expand)
                               </button>
                             )}
                           </div>
@@ -363,7 +363,7 @@ export default function CSVImportDialog({ isOpen, onClose, onImportComplete }: C
                             className="rounded"
                           />
                           <label htmlFor="confirmDelete" className="text-red-400">
-                            ☐ CONFIRM DELETION OF {validationResult.tasksToDelete.length} TASKS
+                            ☐ CONFIRM DELETION OF {validationResult.tasksToDelete?.length ?? 0} TASKS
                           </label>
                         </div>
                       </div>
@@ -421,7 +421,7 @@ export default function CSVImportDialog({ isOpen, onClose, onImportComplete }: C
               [CANCEL]
             </button>
 
-            {validationResult?.tasksToDelete.length > 0 && (
+            {(validationResult?.tasksToDelete?.length ?? 0) > 0 && (
               <button
                 onClick={() => setShowDeletePreview(!showDeletePreview)}
                 className="px-4 py-2 border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black transition-colors"
@@ -435,7 +435,7 @@ export default function CSVImportDialog({ isOpen, onClose, onImportComplete }: C
               disabled={
                 !validationResult?.isValid ||
                 isImporting ||
-                (validationResult?.tasksToDelete.length > 0 && !confirmDeletion)
+                ((validationResult?.tasksToDelete?.length ?? 0) > 0 && !confirmDeletion)
               }
               className="px-4 py-2 border border-green-400 text-green-400 hover:bg-green-400 hover:text-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >

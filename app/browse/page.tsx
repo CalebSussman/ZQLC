@@ -66,16 +66,6 @@ export default function BrowsePage() {
   // CSV Import state
   const [showImportDialog, setShowImportDialog] = useState(false)
 
-  // Handle import completion
-  const handleImportComplete = useCallback(() => {
-    // Reload all data after successful import
-    loadUniverses()
-    if (selectedUniverse) loadPhylums()
-    if (selectedPhylum) loadFamilies()
-    if (selectedPhylum) loadGroups()
-    if (selectedGroup) loadTasks()
-  }, [loadUniverses, loadPhylums, loadFamilies, loadGroups, loadTasks, selectedUniverse, selectedPhylum, selectedGroup])
-
   // Load functions
   const loadUniverses = useCallback(async () => {
     try {
