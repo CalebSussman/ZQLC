@@ -110,18 +110,40 @@ export default function LogPage() {
           .eq('code', entry.task_code)
           .single()
 
-        // Get latest task entry note
+        // Get latest note from both task_entries and task_notes
         let latestNote = ''
         if (taskData?.id) {
+          // Get latest task entry note
           const { data: latestEntry } = await supabase
             .from('task_entries')
-            .select('note')
+            .select('note, entry_timestamp')
             .eq('task_id', taskData.id)
+            .not('note', 'is', null)
+            .not('note', 'eq', '')
             .order('entry_timestamp', { ascending: false })
             .limit(1)
             .single()
 
-          latestNote = latestEntry?.note || ''
+          // Get latest task note
+          const { data: latestTaskNote } = await supabase
+            .from('task_notes')
+            .select('content, created_at')
+            .eq('task_id', taskData.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single()
+
+          // Use the most recent note from either source
+          const entryTime = latestEntry?.entry_timestamp ? new Date(latestEntry.entry_timestamp) : null
+          const noteTime = latestTaskNote?.created_at ? new Date(latestTaskNote.created_at) : null
+
+          if (entryTime && noteTime) {
+            latestNote = entryTime > noteTime ? (latestEntry?.note || '') : (latestTaskNote?.content || '')
+          } else if (entryTime) {
+            latestNote = latestEntry?.note || ''
+          } else if (noteTime) {
+            latestNote = latestTaskNote?.content || ''
+          }
         }
 
         return {
@@ -644,6 +666,19 @@ export default function LogPage() {
           })
 
           if (taskError) console.error('Error creating task entry:', taskError)
+
+          // Also add to task notes if work_description was updated
+          if (updates.work_description !== undefined && updates.work_description !== currentEntry.work_description) {
+            const { error: noteError } = await supabase
+              .from('task_notes')
+              .insert({
+                task_id: task.id,
+                type: 'step',
+                content: updates.work_description || 'Note cleared via calendar'
+              })
+
+            if (noteError) console.error('Error creating task note:', noteError)
+          }
         }
       }
 
