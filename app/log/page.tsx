@@ -15,6 +15,13 @@ interface CalendarEntry {
   is_parallel: boolean
   track_number: number
   created_at: string
+  task_info?: {
+    id: string
+    code: string
+    title: string
+    current_status: string
+    current_status_name: string
+  }
 }
 
 interface DragState {
@@ -85,14 +92,36 @@ export default function LogPage() {
   // Data loading functions
   const loadEntries = async () => {
     try {
-      const { data, error } = await supabase
+      // First load calendar entries
+      const { data: calendarEntries, error: calendarError } = await supabase
         .from('calendar_entries')
         .select('*')
         .eq('date', currentDate.toISOString().split('T')[0])
         .order('start_time')
 
-      if (error) throw error
-      setEntries(data || [])
+      if (calendarError) throw calendarError
+
+      // Then enrich them with current task status
+      const enrichedEntries = await Promise.all((calendarEntries || []).map(async (entry) => {
+        // Get current task status
+        const { data: taskData } = await supabase
+          .from('task_details')
+          .select('id, code, title, current_status, current_status_name')
+          .eq('code', entry.task_code)
+          .single()
+
+        return {
+          ...entry,
+          // Override status_code with current task status if available
+          status_code: taskData?.current_status || entry.status_code,
+          // Use work_description if available, otherwise fall back to task title
+          work_description: entry.work_description || taskData?.title || entry.task_code,
+          // Keep task info for reference
+          task_info: taskData
+        }
+      }))
+
+      setEntries(enrichedEntries)
     } catch (error) {
       console.error('Error loading entries:', error)
     }
@@ -163,7 +192,7 @@ export default function LogPage() {
   // Generate time slots with magnification (7:00 AM to 10:00 PM in 15-minute increments)
   const generateTimeSlots = () => {
     const slots = []
-    for (let hour = 7; hour <= 22; hour++) {
+    for (let hour = 7; hour <= 23; hour++) {
       const hourHeight = getHourHeight(hour)
       const quarterHeight = hourHeight / 4
 
@@ -822,7 +851,7 @@ export default function LogPage() {
                     </button>
                   </div>
                 </div>
-                <div className="w-px h-10 bg-gray-400 mx-2" />
+                <div className="w-px h-12 bg-gray-400 mx-2" />
                 <div className="flex flex-col space-y-1">
                   <button
                     onClick={() => setShowTaskPanel(!showTaskPanel)}
@@ -1004,33 +1033,77 @@ export default function LogPage() {
                 </div>
               ))}
 
-              {/* Individual calendar entries positioned absolutely */}
-              {entries.map((entry, entryIndex) => {
-                const startMinutes = timeToMinutes(entry.start_time)
-                const endMinutes = entry.end_time ? timeToMinutes(entry.end_time) : startMinutes + 60
+              {/* Individual calendar entries positioned absolutely with overlap handling */}
+              {(() => {
+                // Group entries by overlapping time ranges
+                const entryGroups: CalendarEntry[][] = []
 
-                // Calculate position from top based on start time
-                let top = 0
-                const slots = generateTimeSlots()
-                for (const slot of slots) {
-                  if (slot.minutes >= startMinutes) break
-                  top += slot.height
-                }
+                entries.forEach(entry => {
+                  const startMinutes = timeToMinutes(entry.start_time)
+                  const endMinutes = entry.end_time ? timeToMinutes(entry.end_time) : startMinutes + 60
 
-                // Calculate height based on duration and magnification
-                let height = 0
-                for (const slot of slots) {
-                  if (slot.minutes >= startMinutes && slot.minutes < endMinutes) {
-                    height += slot.height
+                  // Find if this entry overlaps with any existing group
+                  let assignedGroup = false
+                  for (const group of entryGroups) {
+                    const overlaps = group.some(groupEntry => {
+                      const groupStart = timeToMinutes(groupEntry.start_time)
+                      const groupEnd = groupEntry.end_time ? timeToMinutes(groupEntry.end_time) : groupStart + 60
+
+                      // Check if time ranges overlap
+                      return (startMinutes < groupEnd && endMinutes > groupStart)
+                    })
+
+                    if (overlaps) {
+                      group.push(entry)
+                      assignedGroup = true
+                      break
+                    }
                   }
-                }
 
-                const barLayout = {
-                  top: `${top}px`,
-                  height: `${Math.max(height - 4, 20)}px`, // Minimum height of 20px
-                  left: '50px',
-                  right: '8px'
-                }
+                  // If no overlapping group found, create new group
+                  if (!assignedGroup) {
+                    entryGroups.push([entry])
+                  }
+                })
+
+                // Render entries with proper space division
+                return entryGroups.flatMap(group => {
+                  const groupSize = group.length
+
+                  return group.map((entry, groupIndex) => {
+                    const startMinutes = timeToMinutes(entry.start_time)
+                    const endMinutes = entry.end_time ? timeToMinutes(entry.end_time) : startMinutes + 60
+
+                    // Calculate position from top based on start time
+                    let top = 0
+                    const slots = generateTimeSlots()
+                    for (const slot of slots) {
+                      if (slot.minutes >= startMinutes) break
+                      top += slot.height
+                    }
+
+                    // Calculate height based on duration and magnification
+                    let height = 0
+                    for (const slot of slots) {
+                      if (slot.minutes >= startMinutes && slot.minutes < endMinutes) {
+                        height += slot.height
+                      }
+                    }
+
+                    // Calculate horizontal layout for this entry within its group
+                    const totalWidth = window.innerWidth < 768
+                      ? window.innerWidth - 70  // Mobile: screen width minus left margin
+                      : (calendarRef.current?.clientWidth || 800) - 60 // Desktop: container width minus margins
+
+                    const entryWidth = Math.floor(totalWidth / groupSize) - 4 // 4px buffer between entries
+                    const leftOffset = 50 + (groupIndex * (entryWidth + 4)) // Base left + index position
+
+                    const barLayout = {
+                      top: `${top}px`,
+                      height: `${Math.max(height - 4, 20)}px`, // Minimum height of 20px
+                      left: `${leftOffset}px`,
+                      width: `${entryWidth}px`
+                    }
 
                 return (
                   <div
@@ -1069,9 +1142,11 @@ export default function LogPage() {
                         </div>
                       </div>
                     </div>
-                  </div>
-                )
-              })}
+                      </div>
+                    )
+                  })
+                })
+              })()}
 
               {/* Click hint */}
               {!dragState.isDragging && entries.length === 0 && (
