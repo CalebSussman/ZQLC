@@ -3,6 +3,6 @@
   "/browse/page": "app/browse/page.js",
   "/log/page": "app/log/page.js",
   "/page": "app/page.js",
-  "/t/[code]/page": "app/t/[code]/page.js",
-  "/todo/page": "app/todo/page.js"
+  "/todo/page": "app/todo/page.js",
+  "/t/[code]/page": "app/t/[code]/page.js"
 }

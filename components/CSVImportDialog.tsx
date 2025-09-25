@@ -200,18 +200,13 @@ export default function CSVImportDialog({ isOpen, onClose, onImportComplete }: C
       <div className="bg-black text-green-400 font-mono rounded-lg w-full max-w-4xl max-h-[95vh] flex flex-col border-2 border-green-400">
         {/* Terminal Header */}
         <div className="p-4 border-b border-green-400 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-            <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-            <span className="ml-4 text-green-400">SYSTEM DATA IMPORT - TERMINAL</span>
-          </div>
+          <span className="text-green-400">SYSTEM DATA IMPORT - TERMINAL</span>
           <button
             onClick={handleClose}
             disabled={isImporting}
             className="text-green-400 hover:text-green-300 disabled:opacity-50"
           >
-            [×]
+            [X]
           </button>
         </div>
 
@@ -257,12 +252,12 @@ export default function CSVImportDialog({ isOpen, onClose, onImportComplete }: C
               <div className="text-yellow-400">─ VALIDATION RESULTS ─────────────────────────</div>
 
               <div className="space-y-1">
-                <div className="text-green-400">✓ CSV FORMAT: VALID</div>
-                <div className="text-green-400">✓ REQUIRED COLUMNS: FOUND</div>
+                <div className="text-green-400">[+] CSV FORMAT: VALID</div>
+                <div className="text-green-400">[+] REQUIRED COLUMNS: FOUND</div>
 
                 {validationResult.errors.length > 0 && (
                   <div className="text-red-400">
-                    ✗ ERRORS: {validationResult.errors.length} FOUND
+                    [-] ERRORS: {validationResult.errors.length} FOUND
                     <div className="ml-4 text-sm space-y-1">
                       {validationResult.errors.slice(0, 5).map((error, i) => (
                         <div key={i}>
@@ -278,7 +273,7 @@ export default function CSVImportDialog({ isOpen, onClose, onImportComplete }: C
 
                 {validationResult.warnings.length > 0 && (
                   <div className="text-yellow-400">
-                    ⚠ WARNINGS: {validationResult.warnings.length} FOUND
+                    [!] WARNINGS: {validationResult.warnings.length} FOUND
                   </div>
                 )}
               </div>
@@ -323,7 +318,7 @@ export default function CSVImportDialog({ isOpen, onClose, onImportComplete }: C
                   {/* Deletion Warning */}
                   {(validationResult.tasksToDelete?.length ?? 0) > 0 && (
                     <div className="mt-4 space-y-2">
-                      <div className="text-red-400">⚠️ DELETION DETECTED:</div>
+                      <div className="text-red-400">[!] DELETION DETECTED:</div>
                       <div className="ml-2">
                         <div className="text-red-400">
                           • {validationResult.tasksToDelete?.length ?? 0} TASKS IN DATABASE NOT IN IMPORT FILE
@@ -363,7 +358,7 @@ export default function CSVImportDialog({ isOpen, onClose, onImportComplete }: C
                             className="rounded"
                           />
                           <label htmlFor="confirmDelete" className="text-red-400">
-                            ☐ CONFIRM DELETION OF {validationResult.tasksToDelete?.length ?? 0} TASKS
+                            [ ] CONFIRM DELETION OF {validationResult.tasksToDelete?.length ?? 0} TASKS
                           </label>
                         </div>
                       </div>
@@ -391,7 +386,7 @@ export default function CSVImportDialog({ isOpen, onClose, onImportComplete }: C
           {/* Import Complete */}
           {importComplete && (
             <div className="text-green-400 space-y-1">
-              <div>&gt; IMPORT COMPLETE ✓</div>
+              <div>&gt; IMPORT COMPLETE [OK]</div>
               <div>&gt; SYSTEM DATA UPDATED SUCCESSFULLY</div>
               <div>&gt; CLOSING TERMINAL...</div>
             </div>
@@ -408,8 +403,8 @@ export default function CSVImportDialog({ isOpen, onClose, onImportComplete }: C
         {/* Terminal Actions */}
         <div className="p-4 border-t border-green-400 flex flex-wrap gap-2 justify-between">
           <div className="text-xs text-green-300">
-            ⚠️ WARNING: THIS WILL MODIFY SYSTEM DATA<br/>
-            ⚠️ BACKUP RECOMMENDED BEFORE PROCEEDING
+            [!] WARNING: THIS WILL MODIFY SYSTEM DATA<br/>
+            [!] BACKUP RECOMMENDED BEFORE PROCEEDING
           </div>
 
           <div className="flex gap-2">

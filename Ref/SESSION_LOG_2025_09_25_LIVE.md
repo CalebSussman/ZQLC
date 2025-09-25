@@ -310,3 +310,54 @@
 - **Created**: `/workspaces/ZQLC/components/CSVImportDialog.tsx` (terminal-style UI)
 - **Created**: `/workspaces/ZQLC/sql/bulk_import_function.sql` (database transaction function)
 - **Modified**: `/workspaces/ZQLC/app/browse/page.tsx` (integration and button activation)
+
+---
+
+### Task #4: Terminal UI Refinements - ASCII-Only Interface
+**Time**: Post-deployment fix
+**Objective**: Remove emojis and unnecessary UI elements to maintain text-only aesthetic
+
+#### Changes Made to `/workspaces/ZQLC/components/CSVImportDialog.tsx`
+
+**1. Removed Traffic Light Dots**
+- **Eliminated**: Three colored dots (red/yellow/green) from terminal header
+- **Simplified**: Clean header with just "SYSTEM DATA IMPORT - TERMINAL" text
+- **Rationale**: Non-functional decorative elements removed for cleaner interface
+
+**2. Replaced All Emojis with ASCII Equivalents**
+- **Validation Indicators**:
+  - `✓` → `[+]` (success/valid status)
+  - `✗` → `[-]` (error status)
+  - `⚠` → `[!]` (warning status)
+- **Checkbox Symbols**:
+  - `☐` → `[ ]` (empty checkbox)
+- **Status Indicators**:
+  - `✓` → `[OK]` (completion status)
+- **Warning Symbols**:
+  - `⚠️` → `[!]` (warning prefixes)
+- **Close Button**:
+  - `×` → `X` (terminal close button)
+
+**3. Maintained Terminal Aesthetic**
+- **Preserved**: Green monospace text on black background
+- **Preserved**: Command-line style prompts and messages
+- **Preserved**: ASCII-style progress bars and formatting
+- **Enhanced**: Consistent ASCII-only character usage throughout
+
+#### Technical Impact
+- **Zero functional changes**: All import logic and validation preserved
+- **Improved consistency**: Aligns with ATOL's text-only design philosophy
+- **Better accessibility**: ASCII characters universally supported
+- **Cleaner interface**: Removed non-functional decorative elements
+
+#### ASCII Character Mapping Applied
+```
+✓ → [+]  (success)
+✗ → [-]  (error)
+⚠ → [!]  (warning)
+☐ → [ ]  (checkbox)
+× → X    (close)
+⚠️ → [!] (emphasis warning)
+```
+
+This refinement ensures the CSV import system maintains the professional, terminal-style interface while adhering to the project's text-only design standards.
