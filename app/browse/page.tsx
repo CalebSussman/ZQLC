@@ -710,6 +710,219 @@ export default function BrowsePage() {
     }
   }
 
+  // CSV Export functionality
+  async function exportToCSV() {
+    try {
+      // Get all data with relationships
+      const { data: allTaskDetails } = await supabase
+        .from('task_details')
+        .select('*')
+        .order('universe_code, phylum_code, family_code, group_num, task_num')
+
+      const { data: allUniverses } = await supabase
+        .from('universes')
+        .select('*')
+        .order('display_order')
+
+      const { data: allPhyla } = await supabase
+        .from('phyla')
+        .select('*, universe:universes(code, name)')
+        .order('display_order')
+
+      const { data: allFamilies } = await supabase
+        .from('families')
+        .select('*, phylum:phyla(code, name, universe:universes(code, name))')
+        .order('display_order')
+
+      const { data: allGroups } = await supabase
+        .from('groups_with_counts')
+        .select('*')
+        .order('group_num')
+
+      // Create CSV data array
+      const csvData: any[] = []
+      const addedEntities = new Set<string>()
+
+      // Add all universes
+      allUniverses?.forEach(universe => {
+        const key = `universe-${universe.code}`
+        if (!addedEntities.has(key)) {
+          csvData.push({
+            type: 'universe',
+            universe_code: universe.code,
+            universe_name: universe.name,
+            phylum_code: '',
+            phylum_name: '',
+            family_code: '',
+            family_name: '',
+            group_num: '',
+            group_name: '',
+            task_num: '',
+            task_title: '',
+            task_status: '',
+            task_priority: '',
+            base_code: '',
+            id: universe.id,
+            display_order: universe.display_order || 0
+          })
+          addedEntities.add(key)
+        }
+      })
+
+      // Add all phyla
+      allPhyla?.forEach(phylum => {
+        const key = `phylum-${(phylum.universe as any)?.code}-${phylum.code}`
+        if (!addedEntities.has(key)) {
+          csvData.push({
+            type: 'phylum',
+            universe_code: (phylum.universe as any)?.code || '',
+            universe_name: (phylum.universe as any)?.name || '',
+            phylum_code: phylum.code,
+            phylum_name: phylum.name,
+            family_code: '',
+            family_name: '',
+            group_num: '',
+            group_name: '',
+            task_num: '',
+            task_title: '',
+            task_status: '',
+            task_priority: '',
+            base_code: '',
+            id: phylum.id,
+            display_order: phylum.display_order || 0
+          })
+          addedEntities.add(key)
+        }
+      })
+
+      // Add all families
+      allFamilies?.forEach(family => {
+        const universeCode = (family.phylum as any)?.universe?.code || ''
+        const phylumCode = (family.phylum as any)?.code || ''
+        const key = `family-${universeCode}-${phylumCode}-${family.code}`
+        if (!addedEntities.has(key)) {
+          csvData.push({
+            type: 'family',
+            universe_code: universeCode,
+            universe_name: (family.phylum as any)?.universe?.name || '',
+            phylum_code: phylumCode,
+            phylum_name: (family.phylum as any)?.name || '',
+            family_code: family.code,
+            family_name: family.name,
+            group_num: '',
+            group_name: '',
+            task_num: '',
+            task_title: '',
+            task_status: '',
+            task_priority: '',
+            base_code: '',
+            id: family.id,
+            display_order: family.display_order || 0
+          })
+          addedEntities.add(key)
+        }
+      })
+
+      // Add all groups
+      allGroups?.forEach(group => {
+        // Get universe and phylum info
+        const universe = allUniverses?.find(u => u.id === group.universe_id)
+        const phylum = allPhyla?.find(p => p.id === group.phylum_id)
+        const family = allFamilies?.find(f => f.id === group.family_id)
+
+        const key = `group-${universe?.code}-${phylum?.code}-${family?.code || 'null'}-${group.group_num}`
+        if (!addedEntities.has(key)) {
+          csvData.push({
+            type: 'group',
+            universe_code: universe?.code || '',
+            universe_name: universe?.name || '',
+            phylum_code: phylum?.code || '',
+            phylum_name: phylum?.name || '',
+            family_code: family?.code || '',
+            family_name: family?.name || '',
+            group_num: group.group_num,
+            group_name: group.name || '',
+            task_num: '',
+            task_title: '',
+            task_status: '',
+            task_priority: '',
+            base_code: '',
+            id: group.id,
+            display_order: 0
+          })
+          addedEntities.add(key)
+        }
+      })
+
+      // Add all tasks
+      allTaskDetails?.forEach(task => {
+        csvData.push({
+          type: 'task',
+          universe_code: task.universe_code || '',
+          universe_name: task.universe_name || '',
+          phylum_code: task.phylum_code || '',
+          phylum_name: task.phylum_name || '',
+          family_code: task.family_code || '',
+          family_name: task.family_name || '',
+          group_num: task.group_num,
+          group_name: task.group_name || '',
+          task_num: task.task_num,
+          task_title: task.title,
+          task_status: task.current_status || task.status,
+          task_priority: task.priority,
+          base_code: task.base_code,
+          id: task.id,
+          display_order: 0
+        })
+      })
+
+      // Convert to CSV
+      const headers = [
+        'type', 'universe_code', 'universe_name', 'phylum_code', 'phylum_name',
+        'family_code', 'family_name', 'group_num', 'group_name', 'task_num',
+        'task_title', 'task_status', 'task_priority', 'base_code', 'id', 'display_order'
+      ]
+
+      const csvRows = [headers.join(',')]
+      csvData.forEach(row => {
+        const values = headers.map(header => {
+          const value = row[header] || ''
+          // Escape commas and quotes in CSV
+          return typeof value === 'string' && (value.includes(',') || value.includes('"'))
+            ? `"${value.replace(/"/g, '""')}"`
+            : value
+        })
+        csvRows.push(values.join(','))
+      })
+
+      // Create and download file
+      const csvContent = csvRows.join('\n')
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+
+      const currentDate = new Date().toISOString().split('T')[0]
+      const filename = `atol-system-export-${currentDate}.csv`
+
+      link.href = URL.createObjectURL(blob)
+      link.download = filename
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      alert(`System data exported successfully!\nFile: ${filename}\nRecords: ${csvData.length}`)
+
+    } catch (error) {
+      console.error('Export error:', error)
+      alert('Failed to export system data. Please check the console for details.')
+    }
+  }
+
+  // Placeholder import function
+  function importFromCSV() {
+    alert('Import functionality coming soon! This will allow you to upload a CSV file to bulk update categories and tasks.')
+  }
+
   // Column component for desktop
   const Column = ({ title, color, children }: { title: string; color: string; children: React.ReactNode }) => (
     <div className="flex-1 flex flex-col h-full border-r border-gray-300 dark:border-gray-700 last:border-r-0">
@@ -1168,6 +1381,30 @@ export default function BrowsePage() {
               )}
             </div>
           )}
+        </div>
+
+        {/* System Management Bar - Mobile */}
+        <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-800 border-t-2 border-gray-300 dark:border-gray-700 rounded-b-lg">
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-4 font-mono">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={exportToCSV}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded transition-colors text-sm"
+              >
+                [SAVE]
+              </button>
+              <span className="text-xs text-gray-500">Export CSV</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={importFromCSV}
+                className="px-4 py-2 bg-gray-400 hover:bg-gray-500 text-white font-bold rounded transition-colors text-sm"
+              >
+                [LOAD]
+              </button>
+              <span className="text-xs text-gray-500">Import CSV (soon)</span>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -1671,6 +1908,27 @@ export default function BrowsePage() {
             <div className="p-4 text-gray-400 text-center font-mono">Select a Group</div>
           )}
         </Column>
+      </div>
+
+      {/* System Management Bar - spans full width below columns */}
+      <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-800 border-t-2 border-gray-300 dark:border-gray-700 rounded-b-lg">
+        <div className="flex justify-center items-center gap-4 font-mono">
+          <button
+            onClick={exportToCSV}
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded transition-colors"
+          >
+            [SAVE]
+          </button>
+          <span className="text-xs text-gray-500">Export system data to CSV</span>
+          <div className="w-px h-6 bg-gray-400"></div>
+          <button
+            onClick={importFromCSV}
+            className="px-6 py-2 bg-gray-400 hover:bg-gray-500 text-white font-bold rounded transition-colors"
+          >
+            [LOAD]
+          </button>
+          <span className="text-xs text-gray-500">Import system data from CSV (coming soon)</span>
+        </div>
       </div>
     </div>
   )
