@@ -361,3 +361,53 @@
 ```
 
 This refinement ensures the CSV import system maintains the professional, terminal-style interface while adhering to the project's text-only design standards.
+
+---
+
+### Task #5: UI Consistency Improvements for LOAD/SAVE Buttons
+**Time**: Post-deployment refinement
+**Objective**: Improve visual consistency and reduce visual clutter in system management controls
+
+#### Changes Made to `/workspaces/ZQLC/app/browse/page.tsx`
+
+**1. Button Size and Style Refinements**
+- **Reduced padding**: Changed from `px-6 py-2` to `px-3 py-1` for compact appearance
+- **Smaller text**: Applied `text-sm` for more subtle button sizing
+- **Explicit font**: Added `font-mono` to ensure consistency with terminal aesthetic
+- **Reduced bar padding**: Changed container padding from `p-3` to `p-2`
+- **Border simplification**: Reduced border from `border-t-2` to `border-t` for cleaner look
+
+**2. Removed Descriptive Text**
+- **Eliminated**: "Export system data to CSV" and "Import system data from CSV" labels
+- **Removed**: Vertical divider separating button groups
+- **Simplified layout**: Clean horizontal button arrangement with minimal spacing
+- **Visual consistency**: Buttons now match terminal dialog button styling
+
+**3. Mobile and Desktop Unification**
+- **Consistent styling**: Both mobile and desktop versions now use identical button styles
+- **Unified layout**: Removed separate mobile/desktop button groupings
+- **Simplified responsiveness**: Same compact design works across all screen sizes
+- **Reduced complexity**: Eliminated responsive text and layout variations
+
+**4. CSV Export Filename Verification**
+- **Confirmed**: Export function already includes `.csv` extension in filename
+- **Format**: `atol-system-export-${currentDate}.csv` (e.g., `atol-system-export-2025-09-25.csv`)
+- **No changes required**: Proper file extension already implemented
+
+#### Visual Impact
+**Before**: Large buttons with descriptive text taking significant vertical space
+```
+[     SAVE     ] Export system data to CSV | [     LOAD     ] Import system data from CSV
+```
+
+**After**: Compact buttons with clean terminal aesthetic
+```
+[SAVE] [LOAD]
+```
+
+#### Technical Benefits
+- **Reduced visual clutter**: Cleaner interface focusing on core functionality
+- **Improved consistency**: Buttons match terminal dialog styling exactly
+- **Better space utilization**: More room for actual browse content
+- **Enhanced professional appearance**: Terminal-style controls throughout
+- **Maintained accessibility**: All functionality preserved with appropriate button sizing

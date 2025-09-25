@@ -1388,26 +1388,20 @@ export default function BrowsePage() {
         </div>
 
         {/* System Management Bar - Mobile */}
-        <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-800 border-t-2 border-gray-300 dark:border-gray-700 rounded-b-lg">
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-4 font-mono">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={exportToCSV}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded transition-colors text-sm"
-              >
-                [SAVE]
-              </button>
-              <span className="text-xs text-gray-500">Export CSV</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={importFromCSV}
-                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded transition-colors text-sm"
-              >
-                [LOAD]
-              </button>
-              <span className="text-xs text-gray-500">Import CSV</span>
-            </div>
+        <div className="mt-4 p-2 bg-gray-100 dark:bg-gray-800 border-t border-gray-300 dark:border-gray-700 rounded-b-lg">
+          <div className="flex justify-center items-center gap-2 font-mono">
+            <button
+              onClick={exportToCSV}
+              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-mono rounded transition-colors"
+            >
+              [SAVE]
+            </button>
+            <button
+              onClick={importFromCSV}
+              className="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-sm font-mono rounded transition-colors"
+            >
+              [LOAD]
+            </button>
           </div>
         </div>
 
@@ -1928,23 +1922,20 @@ export default function BrowsePage() {
       </div>
 
       {/* System Management Bar - spans full width below columns */}
-      <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-800 border-t-2 border-gray-300 dark:border-gray-700 rounded-b-lg">
-        <div className="flex justify-center items-center gap-4 font-mono">
+      <div className="mt-4 p-2 bg-gray-100 dark:bg-gray-800 border-t border-gray-300 dark:border-gray-700 rounded-b-lg">
+        <div className="flex justify-center items-center gap-2 font-mono">
           <button
             onClick={exportToCSV}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded transition-colors"
+            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-mono rounded transition-colors"
           >
             [SAVE]
           </button>
-          <span className="text-xs text-gray-500">Export system data to CSV</span>
-          <div className="w-px h-6 bg-gray-400"></div>
           <button
             onClick={importFromCSV}
-            className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded transition-colors"
+            className="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-sm font-mono rounded transition-colors"
           >
             [LOAD]
           </button>
-          <span className="text-xs text-gray-500">Import system data from CSV</span>
         </div>
       </div>
 
