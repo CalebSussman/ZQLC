@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Universe, Phylum, Family, Task } from '@/lib/supabase'
 import SimpleCreateForm from '@/components/SimpleCreateForm'
+import CSVImportDialog from '@/components/CSVImportDialog'
 
 interface Group {
   id?: string
@@ -61,6 +62,19 @@ export default function BrowsePage() {
   const [editName, setEditName] = useState('')
   const [editCode, setEditCode] = useState('')
   const [editError, setEditError] = useState('')
+
+  // CSV Import state
+  const [showImportDialog, setShowImportDialog] = useState(false)
+
+  // Handle import completion
+  const handleImportComplete = useCallback(() => {
+    // Reload all data after successful import
+    loadUniverses()
+    if (selectedUniverse) loadPhylums()
+    if (selectedPhylum) loadFamilies()
+    if (selectedPhylum) loadGroups()
+    if (selectedGroup) loadTasks()
+  }, [loadUniverses, loadPhylums, loadFamilies, loadGroups, loadTasks, selectedUniverse, selectedPhylum, selectedGroup])
 
   // Load functions
   const loadUniverses = useCallback(async () => {
@@ -918,9 +932,9 @@ export default function BrowsePage() {
     }
   }
 
-  // Placeholder import function
+  // Open import dialog
   function importFromCSV() {
-    alert('Import functionality coming soon! This will allow you to upload a CSV file to bulk update categories and tasks.')
+    setShowImportDialog(true)
   }
 
   // Column component for desktop
@@ -1398,14 +1412,27 @@ export default function BrowsePage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={importFromCSV}
-                className="px-4 py-2 bg-gray-400 hover:bg-gray-500 text-white font-bold rounded transition-colors text-sm"
+                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded transition-colors text-sm"
               >
                 [LOAD]
               </button>
-              <span className="text-xs text-gray-500">Import CSV (soon)</span>
+              <span className="text-xs text-gray-500">Import CSV</span>
             </div>
           </div>
         </div>
+
+        {/* CSV Import Dialog */}
+        <CSVImportDialog
+          isOpen={showImportDialog}
+          onClose={() => setShowImportDialog(false)}
+          onImportComplete={() => {
+            loadUniverses()
+            loadPhylums()
+            loadFamilies()
+            loadGroups()
+            loadTasks()
+          }}
+        />
       </div>
     )
   }
@@ -1923,13 +1950,26 @@ export default function BrowsePage() {
           <div className="w-px h-6 bg-gray-400"></div>
           <button
             onClick={importFromCSV}
-            className="px-6 py-2 bg-gray-400 hover:bg-gray-500 text-white font-bold rounded transition-colors"
+            className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded transition-colors"
           >
             [LOAD]
           </button>
-          <span className="text-xs text-gray-500">Import system data from CSV (coming soon)</span>
+          <span className="text-xs text-gray-500">Import system data from CSV</span>
         </div>
       </div>
+
+      {/* CSV Import Dialog */}
+      <CSVImportDialog
+        isOpen={showImportDialog}
+        onClose={() => setShowImportDialog(false)}
+        onImportComplete={() => {
+          loadUniverses()
+          loadPhylums()
+          loadFamilies()
+          loadGroups()
+          loadTasks()
+        }}
+      />
     </div>
   )
 }
