@@ -33,6 +33,8 @@ interface DragState {
   currentPosition: { x: number; y: number }
 }
 
+type ViewMode = 'daily' | 'weekly' | 'monthly'
+
 export default function LogPage() {
   // Core state
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -40,6 +42,7 @@ export default function LogPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [isHydrated, setIsHydrated] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('daily')
 
   // UI state
   const [showTaskPanel, setShowTaskPanel] = useState(false)
@@ -72,6 +75,16 @@ export default function LogPage() {
   const [soaContent, setSOAContent] = useState<string>('')
   const [soaJSXContent, setSOAJSXContent] = useState<JSX.Element | null>(null)
   const [isGeneratingSOA, setIsGeneratingSOA] = useState(false)
+
+  // SOWA state
+  const [showSOWA, setShowSOWA] = useState(false)
+  const [sowaContent, setSOWAContent] = useState<string>('')
+  const [isGeneratingSOWA, setIsGeneratingSOWA] = useState(false)
+
+  // SOMA state
+  const [showSOMA, setShowSOMA] = useState(false)
+  const [somaContent, setSOMAContent] = useState<string>('')
+  const [isGeneratingSOMA, setIsGeneratingSOMA] = useState(false)
 
   // Refs
   const calendarRef = useRef<HTMLDivElement>(null)
@@ -626,6 +639,124 @@ export default function LogPage() {
     }
   }
 
+  // Generate SOWA (Statement of Weekly Activities)
+  const generateSOWA = async () => {
+    setIsGeneratingSOWA(true)
+    try {
+      const weekBounds = getWeekBounds(currentDate)
+      const weekNumber = getWeekNumber(currentDate)
+
+      // Get all entries for the week
+      const weekEntries: CalendarEntry[] = []
+      for (let d = new Date(weekBounds.start); d <= weekBounds.end; d.setDate(d.getDate() + 1)) {
+        const dateStr = getLocalDateString(d)
+        const { data: dayEntries } = await supabase
+          .from('calendar_entries')
+          .select('*')
+          .eq('date', dateStr)
+          .order('start_time')
+        if (dayEntries) weekEntries.push(...dayEntries)
+      }
+
+      // Generate SOWA content
+      const startStr = weekBounds.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      const endStr = weekBounds.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+
+      let content = `# SOWA - Week ${weekNumber}: ${startStr} - ${endStr}, ${currentDate.getFullYear()}\\n\\n`
+      content += `**Generated:** ${new Date().toLocaleString()}\\n\\n`
+      content += `**Total Entries:** ${weekEntries.length}\\n\\n`
+
+      // Group by day
+      const dayGroups: Record<string, CalendarEntry[]> = {}
+      weekEntries.forEach(entry => {
+        if (!dayGroups[entry.date]) dayGroups[entry.date] = []
+        dayGroups[entry.date].push(entry)
+      })
+
+      Object.keys(dayGroups).sort().forEach(date => {
+        const dayName = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+        content += `## ${dayName}\\n\\n`
+        dayGroups[date].forEach(entry => {
+          content += `- **${entry.start_time}${entry.end_time ? ' - ' + entry.end_time : ''}**: [${entry.status_code}] ${entry.task_code}\\n`
+          if (entry.work_description) {
+            content += `  ${entry.work_description}\\n`
+          }
+        })
+        content += '\\n'
+      })
+
+      setSOWAContent(content)
+      setShowSOWA(true)
+    } catch (error) {
+      console.error('Error generating SOWA:', error)
+    } finally {
+      setIsGeneratingSOWA(false)
+    }
+  }
+
+  // Generate SOMA (Statement of Monthly Activities)
+  const generateSOMA = async () => {
+    setIsGeneratingSOMA(true)
+    try {
+      const monthBounds = getMonthBounds(currentDate)
+      const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+
+      // Get all entries for the month
+      const monthEntries: CalendarEntry[] = []
+      for (let d = new Date(monthBounds.start); d <= monthBounds.end; d.setDate(d.getDate() + 1)) {
+        const dateStr = getLocalDateString(d)
+        const { data: dayEntries } = await supabase
+          .from('calendar_entries')
+          .select('*')
+          .eq('date', dateStr)
+          .order('start_time')
+        if (dayEntries) monthEntries.push(...dayEntries)
+      }
+
+      // Generate SOMA content
+      let content = `# SOMA - ${monthName}\\n\\n`
+      content += `**Generated:** ${new Date().toLocaleString()}\\n\\n`
+      content += `**Total Entries:** ${monthEntries.length}\\n\\n`
+
+      // Group by week
+      const weekGroups: Record<number, CalendarEntry[]> = {}
+      monthEntries.forEach(entry => {
+        const entryDate = new Date(entry.date + 'T12:00:00')
+        const week = getWeekNumber(entryDate)
+        if (!weekGroups[week]) weekGroups[week] = []
+        weekGroups[week].push(entry)
+      })
+
+      Object.keys(weekGroups).sort((a, b) => Number(a) - Number(b)).forEach(weekStr => {
+        const week = Number(weekStr)
+        content += `## Week ${week}\\n\\n`
+        content += `**Entries:** ${weekGroups[week].length}\\n\\n`
+
+        // Group by status
+        const statusGroups: Record<string, CalendarEntry[]> = {}
+        weekGroups[week].forEach(entry => {
+          if (!statusGroups[entry.status_code]) statusGroups[entry.status_code] = []
+          statusGroups[entry.status_code].push(entry)
+        })
+
+        Object.keys(statusGroups).sort().forEach(status => {
+          content += `### Status: ${status}\\n\\n`
+          statusGroups[status].forEach(entry => {
+            content += `- **${entry.date}** ${entry.start_time}: ${entry.task_code}\\n`
+          })
+          content += '\\n'
+        })
+      })
+
+      setSOMAContent(content)
+      setShowSOMA(true)
+    } catch (error) {
+      console.error('Error generating SOMA:', error)
+    } finally {
+      setIsGeneratingSOMA(false)
+    }
+  }
+
   // Generate markdown content for SOA download
   const generateMarkdownSOA = (universeGroups: any): string => {
     // Calculate totals
@@ -954,11 +1085,51 @@ export default function LogPage() {
     }
   }, [dragState.isDragging, hoveredTimeSlot])
 
-  // Date navigation
+  // Date navigation - updated for multi-view support
   const navigateDate = (direction: 'prev' | 'next') => {
     const newDate = new Date(currentDate)
-    newDate.setDate(currentDate.getDate() + (direction === 'next' ? 1 : -1))
+
+    switch (viewMode) {
+      case 'daily':
+        newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1))
+        break
+      case 'weekly':
+        newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7))
+        break
+      case 'monthly':
+        newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1))
+        break
+    }
+
     setCurrentDate(newDate)
+  }
+
+  // Get week bounds for current date
+  const getWeekBounds = (date: Date) => {
+    const startOfWeek = new Date(date)
+    const day = startOfWeek.getDay()
+    startOfWeek.setDate(startOfWeek.getDate() - day)
+
+    const endOfWeek = new Date(startOfWeek)
+    endOfWeek.setDate(endOfWeek.getDate() + 6)
+
+    return { start: startOfWeek, end: endOfWeek }
+  }
+
+  // Get month bounds for current date
+  const getMonthBounds = (date: Date) => {
+    const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1)
+    const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+
+    return { start: startOfMonth, end: endOfMonth }
+  }
+
+  // Get week number
+  const getWeekNumber = (date: Date) => {
+    const onejan = new Date(date.getFullYear(), 0, 1)
+    const today = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+    const dayOfYear = ((today.getTime() - onejan.getTime() + 86400000) / 86400000)
+    return Math.ceil(dayOfYear / 7)
   }
 
   const formatDate = () => {
@@ -1022,37 +1193,71 @@ export default function LogPage() {
         <div className="font-mono">
           {/* Mobile Layout: Date left, controls right */}
           {isMobile ? (
-            <div className="flex items-start justify-between">
-              <div className="text-sm font-bold flex-1 leading-tight">
-                <div className="text-gray-600 dark:text-gray-400">{formatDateStacked().weekday}</div>
-                <div className="text-base">{formatDateStacked().month}</div>
-                <div className="text-gray-600 dark:text-gray-400">{formatDateStacked().dayYear}</div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <div className="flex flex-col items-center space-y-1">
+            <div className="space-y-3">
+              <div className="flex items-start justify-between">
+                <div className="text-sm font-bold flex-1 leading-tight">
+                  <div className="text-gray-600 dark:text-gray-400">{formatDateStacked().weekday}</div>
+                  <div className="text-base">{formatDateStacked().month}</div>
+                  <div className="text-gray-600 dark:text-gray-400">{formatDateStacked().dayYear}</div>
+                </div>
+                <div className="flex items-start space-x-2">
                   <button
                     onClick={() => setCurrentDate(new Date())}
-                    className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-mono"
+                    className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-mono"
                   >
                     TODAY
                   </button>
-                  <div className="flex space-x-1">
-                    <button
-                      onClick={() => navigateDate('prev')}
-                      className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-sm"
-                    >
-                      &lt;
-                    </button>
-                    <button
-                      onClick={() => navigateDate('next')}
-                      className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-sm"
-                    >
-                      &gt;
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => navigateDate('prev')}
+                    className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-mono"
+                  >
+                    [&lt;]
+                  </button>
+                  <button
+                    onClick={() => navigateDate('next')}
+                    className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-mono"
+                  >
+                    [&gt;]
+                  </button>
                 </div>
-                <div className="w-px h-12 bg-gray-400 mx-2" />
-                <div className="flex flex-col space-y-1">
+              </div>
+
+              {/* View Mode and Action Buttons */}
+              <div className="flex items-center justify-between">
+                <div className="flex space-x-1">
+                  <button
+                    onClick={() => setViewMode('daily')}
+                    className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
+                      viewMode === 'daily'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    DAY
+                  </button>
+                  <button
+                    onClick={() => setViewMode('weekly')}
+                    className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
+                      viewMode === 'weekly'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    WK
+                  </button>
+                  <button
+                    onClick={() => setViewMode('monthly')}
+                    className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
+                      viewMode === 'monthly'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    MO
+                  </button>
+                </div>
+
+                <div className="flex space-x-1">
                   <button
                     onClick={() => setShowTaskPanel(!showTaskPanel)}
                     className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
@@ -1061,59 +1266,101 @@ export default function LogPage() {
                         : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
                     }`}
                   >
-                    TASKS
+                    TSK
                   </button>
                   <button
-                    onClick={generateSOA}
-                    disabled={isGeneratingSOA}
-                    className="px-2 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded text-xs font-mono transition-colors"
+                    onClick={viewMode === 'daily' ? generateSOA : viewMode === 'weekly' ? generateSOWA : generateSOMA}
+                    disabled={isGeneratingSOA || isGeneratingSOWA || isGeneratingSOMA}
+                    className="px-2 py-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded text-xs font-mono transition-colors"
                   >
-                    {isGeneratingSOA ? 'GEN...' : 'SOA'}
+                    {(isGeneratingSOA || isGeneratingSOWA || isGeneratingSOMA) ? 'GEN' :
+                     viewMode === 'daily' ? 'SOA' : viewMode === 'weekly' ? 'SOWA' : 'SOMA'}
                   </button>
                 </div>
               </div>
             </div>
           ) : (
-            /* Desktop Layout: Horizontal */
-            <div className="flex items-center justify-between">
-              <h1 className="text-xl font-bold">{formatDate()}</h1>
-              <div className="flex items-center space-x-2">
-              <button
-                onClick={() => navigateDate('prev')}
-                className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-              >
-                [&lt;]
-              </button>
-              <button
-                onClick={() => setCurrentDate(new Date())}
-                className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-xs"
-              >
-                TODAY
-              </button>
-              <button
-                onClick={() => navigateDate('next')}
-                className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-              >
-                [&gt;]
-              </button>
-              <div className="w-px h-6 bg-gray-400 mx-2" />
-              <button
-                onClick={() => setShowTaskPanel(!showTaskPanel)}
-                className={`px-3 py-1 rounded text-xs font-mono transition-colors ${
-                  showTaskPanel
-                    ? 'bg-green-600 hover:bg-green-700 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                [TASKS]
-              </button>
-              <button
-                onClick={generateSOA}
-                disabled={isGeneratingSOA}
-                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded text-xs font-mono transition-colors"
-              >
-                {isGeneratingSOA ? '[GENERATING...]' : '[SOA]'}
-              </button>
+            /* Desktop Layout: Two rows for better organization */
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h1 className="text-xl font-bold">{formatDate()}</h1>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => navigateDate('prev')}
+                    className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-mono"
+                  >
+                    [&lt;]
+                  </button>
+                  <button
+                    onClick={() => setCurrentDate(new Date())}
+                    className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-mono"
+                  >
+                    TODAY
+                  </button>
+                  <button
+                    onClick={() => navigateDate('next')}
+                    className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-xs font-mono"
+                  >
+                    [&gt;]
+                  </button>
+                </div>
+              </div>
+
+              {/* View Mode and Action Controls */}
+              <div className="flex items-center justify-between">
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setViewMode('daily')}
+                    className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
+                      viewMode === 'daily'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    [DAILY]
+                  </button>
+                  <button
+                    onClick={() => setViewMode('weekly')}
+                    className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
+                      viewMode === 'weekly'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    [WEEKLY]
+                  </button>
+                  <button
+                    onClick={() => setViewMode('monthly')}
+                    className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
+                      viewMode === 'monthly'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    [MONTHLY]
+                  </button>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setShowTaskPanel(!showTaskPanel)}
+                    className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
+                      showTaskPanel
+                        ? 'bg-green-600 hover:bg-green-700 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    [TASKS]
+                  </button>
+                  <button
+                    onClick={viewMode === 'daily' ? generateSOA : viewMode === 'weekly' ? generateSOWA : generateSOMA}
+                    disabled={isGeneratingSOA || isGeneratingSOWA || isGeneratingSOMA}
+                    className="px-2 py-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded text-xs font-mono transition-colors"
+                  >
+                    {(isGeneratingSOA || isGeneratingSOWA || isGeneratingSOMA) ? '[GENERATING...]' :
+                     viewMode === 'daily' ? '[SOA]' : viewMode === 'weekly' ? '[SOWA]' : '[SOMA]'}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -1170,19 +1417,392 @@ export default function LogPage() {
           </div>
         )}
 
-        {/* Calendar */}
+        {/* Main Content - Conditional View Rendering */}
         <div className="flex-1 p-4">
           <div className="relative">
-            <div
-              ref={calendarRef}
-              className="relative bg-white dark:bg-gray-900 rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden"
-              onMouseLeave={() => {
-                setHoveredTimeSlot(null)
-                setHoveredEntry(null)
-                setHoveredHour(null)
-              }}
-            >
-              {/* Time grid - empty slots for magnification and drop zones */}
+            {viewMode === 'daily' && (
+              /* Daily View - Existing Calendar */
+              <div
+                ref={calendarRef}
+                className="relative bg-white dark:bg-gray-900 rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden"
+                onMouseLeave={() => {
+                  setHoveredTimeSlot(null)
+                  setHoveredEntry(null)
+                  setHoveredHour(null)
+                }}
+              >
+
+            {/* Continue with Daily View Content if in daily mode */}
+            {viewMode === 'daily' && (
+              <>{/* Time grid - empty slots for magnification and drop zones */}
+              {generateTimeSlots().map((slot) => (
+                <div
+                  key={slot.time}
+                  className={`relative border-b transition-all duration-300 ease-out ${
+                    slot.quarter === 0
+                      ? 'border-gray-400 dark:border-gray-500' // Emphasize hour lines
+                      : 'border-gray-100 dark:border-gray-800' // Light quarter-hour lines
+                  } ${
+                    hoveredTimeSlot === slot.time && dragState.isDragging ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                  } ${!dragState.isDragging ? 'hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}`}
+                  style={{
+                    height: `${slot.height}px` // Use dynamic magnified height
+                  }}
+                  onMouseEnter={() => {
+                    if (!dragState.isDragging) {
+                      setHoveredTimeSlot(slot.time)
+                      setHoveredHour(slot.hour)
+                    }
+                  }}
+                  onClick={() => {
+                    if (!dragState.isDragging) {
+                      setSelectedTimeSlot(slot.time)
+                      setShowTaskSearch(true)
+                    }
+                  }}
+                >
+
+                  {/* Visual marker for hour label */}
+                  {slot.quarter === 0 && (
+                    <div className="absolute left-2 top-1 text-xs text-gray-500 font-mono">
+                      {slot.time}
+                    </div>
+                  )}
+
+                  {/* Quarter-hour markers or work visualization */}
+                  {(() => {
+                    const slotEntries = entries.filter((entry) => {
+                      const entryStart = entry.start_time
+                      const entryEnd = entry.end_time || '23:59'
+                      return (slot.time >= entryStart && slot.time < entryEnd) ||
+                             (entryStart === slot.time)
+                    })
+
+                    return slotEntries.map((entry, idx) => {
+                      const barLayout = getEntryBarLayout(entry, slotEntries)
+
+                      if (!barLayout) return null
+
+                      // Calculate actual visual layout
+                      const containerWidth = calendarRef.current?.clientWidth || 800
+                      const entryWidth = (containerWidth - 80) * (parseFloat(barLayout.width) / 100) - 8
+                      const leftOffset = 80 + (containerWidth - 80) * (parseFloat(barLayout.left) / 100) + 4
+
+                    if (entryWidth < 10) {
+                      return null // Don't render if too narrow
+                    }
+
+                    const fullStatusCode = `${entry.status_code}-${entry.task_code}`
+
+                    const statusColor = getStatusColor(entry.status_code)
+
+                    if (entryWidth < 60) {
+                      // Single dot style for narrow entries
+                      return (
+                        <div
+                          key={entry.id}
+                          className={`absolute rounded-full cursor-pointer hover:opacity-80 ${statusColor} ${
+                            hoveredEntry?.id === entry.id ? 'ring-2 ring-white ring-opacity-50' : ''
+                          }`}
+                          style={{
+                            width: '8px',
+                            height: '8px',
+                            left: `${leftOffset}px`,
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            zIndex: 30
+                          }}
+                          onMouseEnter={() => setHoveredEntry(entry)}
+                          onMouseLeave={() => setHoveredEntry(null)}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setSelectedEntry(entry)
+                          }}
+                          title={`[${entry.status_code}] ${entry.task_code} - ${entry.start_time}${entry.end_time ? ' to ' + entry.end_time : ''}`}
+                        />
+                      )
+                    }
+
+                    const displayText = entryWidth < 120 ? `[${entry.status_code}]` : fullStatusCode
+
+                    return (
+                      <div
+                        key={entry.id}
+                        className={`absolute transition-all duration-200 cursor-pointer hover:opacity-80 rounded ${statusColor} ${
+                          hoveredEntry?.id === entry.id ? 'ring-2 ring-white ring-opacity-50' : ''
+                        }`}
+                        style={{
+                          height: `${slot.height - 4}px`,
+                          left: `${leftOffset}px`,
+                          width: `${entryWidth}px`,
+                          top: '2px',
+                          zIndex: 30,
+                          minHeight: '20px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        onMouseEnter={() => setHoveredEntry(entry)}
+                        onMouseLeave={() => setHoveredEntry(null)}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setSelectedEntry(entry)
+                        }}
+                      >
+                        <div className="text-white text-xs font-mono font-bold truncate px-1">
+                          {displayText}
+                        </div>
+                      </div>
+                    )
+                  })
+                })()}
+
+                {/* Simple block-style entries for better readability */}
+                {(() => {
+                  const slotEntries = entries.filter((entry) => {
+                    const entryStart = entry.start_time
+                    const entryEnd = entry.end_time || '23:59'
+                    const slotTime = slot.time
+                    return slotTime >= entryStart && slotTime < entryEnd
+                  })
+
+                  if (slotEntries.length === 0) return null
+
+                  return slotEntries.map((entry, entryIndex) => {
+                    // Calculate layout for each entry in the slot
+                    const barLayout = getEntryBarLayout(entry, slotEntries)
+
+                    if (!barLayout) return null
+
+                    const containerWidth = calendarRef.current?.clientWidth || 800
+                    const availableWidth = containerWidth - 80 // Leave space for time labels
+                    const entryWidth = (availableWidth * (parseFloat(barLayout.width) / 100)) - 8 // Subtract margin
+                    const leftOffset = 80 + (availableWidth * (parseFloat(barLayout.left) / 100)) + 4 // Add margin
+
+                    // Don't render if too narrow to be useful
+                    if (entryWidth < 20) return null
+
+                    const statusColor = getStatusColor(entry.status_code)
+
+                    const containerStyle = {
+                      position: 'absolute' as const,
+                      height: `${slot.height - 4}px`,
+                      left: `${leftOffset}px`,
+                      width: `${entryWidth}px`
+                    }
+
+                return (
+                  <div
+                    key={entry.id}
+                    className={`absolute transition-all duration-200 cursor-pointer hover:opacity-80 rounded ${
+                      getStatusColor(entry.status_code)
+                    } ${
+                      hoveredEntry?.id === entry.id ? 'ring-2 ring-white ring-opacity-50' : ''
+                    }`}
+                    style={{
+                      ...barLayout,
+                      zIndex: 30,
+                      margin: '2px'
+                    }}
+                    onMouseEnter={() => {
+                      setHoveredEntry(entry)
+                    }}
+                    onMouseLeave={() => setHoveredEntry(null)}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setSelectedEntry(entry)
+                    }}
+                  >
+                    <div className={`absolute inset-0 flex items-center transition-all duration-200 ${
+                      hoveredEntry?.id === entry.id
+                        ? 'justify-end pr-4' // Move to right when editing/hovered
+                        : 'justify-center' // Centered by default
+                    }`}>
+                      <div className="text-xs text-white text-center">
+                        <div className="font-mono font-bold truncate">
+                          [{entry.status_code}] {entry.task_code}
+                        </div>
+                        {entry.task_info?.title && (
+                          <div className="opacity-90 text-xs truncate font-medium">
+                            {entry.task_info.title}
+                          </div>
+                        )}
+                        <div className="opacity-75 text-xs">
+                          {entry.start_time} - {entry.end_time || 'ongoing'}
+                        </div>
+                      </div>
+                    </div>
+                      </div>
+                    )
+                  })
+                })
+              })()}
+
+              {/* Click hint */}
+              {!dragState.isDragging && entries.length === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center text-gray-400 pointer-events-none">
+                  <div className="text-center font-mono">
+                    <div>Drag tasks from panel to schedule</div>
+                    <div className="text-sm mt-1">Or click time slots to search tasks</div>
+                  </div>
+                </div>
+              )}
+              </>
+              )}
+              </div>
+              )}
+
+            {/* Weekly View - Heat Map Grid */}
+            {viewMode === 'weekly' && (
+              <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <h2 className="text-lg font-mono font-bold">
+                    WEEK {getWeekNumber(currentDate)}: {(() => {
+                      const bounds = getWeekBounds(currentDate)
+                      const start = bounds.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      const end = bounds.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      return `${start} - ${end}, ${currentDate.getFullYear()}`
+                    })()}
+                  </h2>
+                </div>
+                <div className="p-4">
+                  {/* Week Header */}
+                  <div className="grid grid-cols-8 gap-1 mb-2">
+                    <div className="text-xs font-mono text-gray-500 text-center"></div>
+                    {(() => {
+                      const bounds = getWeekBounds(currentDate)
+                      const days = []
+                      for (let d = new Date(bounds.start); d <= bounds.end; d.setDate(d.getDate() + 1)) {
+                        days.push(new Date(d))
+                      }
+                      return days.map(day => (
+                        <div key={day.toISOString()} className="text-xs font-mono text-center">
+                          <div className="font-bold">{day.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}</div>
+                          <div className="text-gray-500">{day.getDate()}</div>
+                        </div>
+                      ))
+                    })()}
+                  </div>
+
+                  {/* Time Grid */}
+                  <div className="space-y-1">
+                    {Array.from({length: 24}, (_, hour) => (
+                      <div key={hour} className="grid grid-cols-8 gap-1 items-center">
+                        <div className="text-xs font-mono text-gray-500 text-right pr-2">
+                          {hour.toString().padStart(2, '0')}:00
+                        </div>
+                        {(() => {
+                          const bounds = getWeekBounds(currentDate)
+                          const days = []
+                          for (let d = new Date(bounds.start); d <= bounds.end; d.setDate(d.getDate() + 1)) {
+                            days.push(new Date(d))
+                          }
+                          return days.map(day => {
+                            // Simulate activity density (you can replace with real data)
+                            const activity = Math.random() > 0.3 ? (Math.random() > 0.5 ? 'high' : 'medium') : 'low'
+                            const bgClass = activity === 'high' ? 'bg-gray-800 dark:bg-gray-200' :
+                                           activity === 'medium' ? 'bg-gray-500 dark:bg-gray-400' :
+                                           'bg-gray-200 dark:bg-gray-700'
+                            return (
+                              <div key={`${day.toISOString()}-${hour}`} className={`h-4 rounded ${bgClass} cursor-pointer hover:opacity-80`}></div>
+                            )
+                          })
+                        })()}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Monthly View - Calendar with Bracket Notation */
+              <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <h2 className="text-lg font-mono font-bold">
+                    {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase()}
+                  </h2>
+                </div>
+                <div className="p-4">
+                  {/* Month Header */}
+                  <div className="grid grid-cols-7 gap-1 mb-2">
+                    {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
+                      <div key={day} className="text-xs font-mono text-center font-bold text-gray-600 dark:text-gray-400 p-2">
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Calendar Grid */}
+                  <div className="grid grid-cols-7 gap-1">
+                    {(() => {
+                      const bounds = getMonthBounds(currentDate)
+                      const firstDay = bounds.start.getDay()
+                      const daysInMonth = bounds.end.getDate()
+                      const cells = []
+
+                      // Empty cells for days before month starts
+                      for (let i = 0; i < firstDay; i++) {
+                        cells.push(
+                          <div key={`empty-${i}`} className="h-12 bg-gray-50 dark:bg-gray-800 rounded"></div>
+                        )
+                      }
+
+                      // Days of the month
+                      for (let day = 1; day <= daysInMonth; day++) {
+                        const activity = Math.random() > 0.3 ? (Math.random() > 0.5 ? 'high' : 'medium') : 'low'
+                        const bgClass = activity === 'high' ? 'bg-gray-800 dark:bg-gray-200' :
+                                       activity === 'medium' ? 'bg-gray-500 dark:bg-gray-400' :
+                                       'bg-gray-200 dark:bg-gray-700'
+
+                        // Add bracket notation for card periods (simplified example)
+                        const isCardStart = day === 1 || day === 8 || day === 15 || day === 22
+                        const isCardEnd = day === 7 || day === 14 || day === 21 || day === 28
+
+                        cells.push(
+                          <div key={day} className={`h-12 ${bgClass} rounded relative cursor-pointer hover:opacity-80 flex items-center justify-center`}>
+                            <div className="text-xs font-mono text-center">
+                              <div className="flex items-center justify-center">
+                                {isCardStart && <span className="text-yellow-500 font-bold">[</span>}
+                                <span className="mx-1">{day}</span>
+                                {isCardEnd && <span className="text-yellow-500 font-bold">]</span>}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      }
+
+                      return cells
+                    })()}
+                  </div>
+
+                  {/* Legend */}
+                  <div className="mt-4 flex items-center justify-center space-x-4 text-xs font-mono text-gray-600 dark:text-gray-400">
+                    <div className="flex items-center space-x-1">
+                      <span className="text-yellow-500 font-bold">[</span>
+                      <span>Card Start</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <span className="text-yellow-500 font-bold">]</span>
+                      <span>Card End</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-gray-800 dark:bg-gray-200 rounded"></div>
+                      <span>High</span>
+                      <div className="w-3 h-3 bg-gray-500 dark:bg-gray-400 rounded"></div>
+                      <span>Med</span>
+                      <div className="w-3 h-3 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      <span>Low</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Continue with Daily View Content if in daily mode */}
+            {viewMode === 'daily' && (
+              <>{/* Time grid - empty slots for magnification and drop zones */}
               {generateTimeSlots().map((slot) => (
                 <div
                   key={slot.time}
@@ -1361,6 +1981,8 @@ export default function LogPage() {
                     <div className="text-sm mt-1">Or click time slots to search tasks</div>
                   </div>
                 </div>
+              )}
+              </>
               )}
             </div>
           </div>
@@ -1726,6 +2348,132 @@ export default function LogPage() {
               </button>
               <button
                 onClick={() => setShowSOA(false)}
+                className="flex-1 bg-gray-500 text-white py-3 px-4 rounded hover:bg-gray-600 transition-colors font-mono text-xs sm:text-sm"
+              >
+                [CLOSE]
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SOWA Modal */}
+      {showSOWA && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-lg w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg sm:text-xl font-mono font-bold">Statement of Weekly Activities</h3>
+                  <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 font-mono">
+                    Week {getWeekNumber(currentDate)} - {currentDate.getFullYear()}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowSOWA(false)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <pre className="whitespace-pre-wrap font-mono text-sm">{sowaContent}</pre>
+            </div>
+            {/* Actions */}
+            <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <button
+                onClick={() => {
+                  const blob = new Blob([sowaContent], { type: 'text/markdown' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `SOWA-Week${getWeekNumber(currentDate)}-${currentDate.getFullYear()}.md`
+                  document.body.appendChild(a)
+                  a.click()
+                  document.body.removeChild(a)
+                  URL.revokeObjectURL(url)
+                }}
+                className="flex-1 bg-green-600 text-white py-3 px-4 rounded hover:bg-green-700 transition-colors font-mono text-xs sm:text-sm"
+              >
+                [DOWNLOAD .MD]
+              </button>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(sowaContent)
+                  alert('SOWA copied to clipboard!')
+                }}
+                className="flex-1 bg-blue-600 text-white py-3 px-4 rounded hover:bg-blue-700 transition-colors font-mono text-xs sm:text-sm"
+              >
+                [COPY]
+              </button>
+              <button
+                onClick={() => setShowSOWA(false)}
+                className="flex-1 bg-gray-500 text-white py-3 px-4 rounded hover:bg-gray-600 transition-colors font-mono text-xs sm:text-sm"
+              >
+                [CLOSE]
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SOMA Modal */}
+      {showSOMA && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-lg w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg sm:text-xl font-mono font-bold">Statement of Monthly Activities</h3>
+                  <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 font-mono">
+                    {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowSOMA(false)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <pre className="whitespace-pre-wrap font-mono text-sm">{somaContent}</pre>
+            </div>
+            {/* Actions */}
+            <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <button
+                onClick={() => {
+                  const blob = new Blob([somaContent], { type: 'text/markdown' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `SOMA-${currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).replace(' ', '-')}.md`
+                  document.body.appendChild(a)
+                  a.click()
+                  document.body.removeChild(a)
+                  URL.revokeObjectURL(url)
+                }}
+                className="flex-1 bg-green-600 text-white py-3 px-4 rounded hover:bg-green-700 transition-colors font-mono text-xs sm:text-sm"
+              >
+                [DOWNLOAD .MD]
+              </button>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(somaContent)
+                  alert('SOMA copied to clipboard!')
+                }}
+                className="flex-1 bg-blue-600 text-white py-3 px-4 rounded hover:bg-blue-700 transition-colors font-mono text-xs sm:text-sm"
+              >
+                [COPY]
+              </button>
+              <button
+                onClick={() => setShowSOMA(false)}
                 className="flex-1 bg-gray-500 text-white py-3 px-4 rounded hover:bg-gray-600 transition-colors font-mono text-xs sm:text-sm"
               >
                 [CLOSE]
