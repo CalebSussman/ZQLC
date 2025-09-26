@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Task } from '@/lib/supabase'
+import { getLocalDateString } from '@/lib/dateUtils'
 
 interface CalendarEntry {
   id: string
@@ -99,7 +100,7 @@ export default function LogPage() {
       const { data: calendarEntries, error: calendarError } = await supabase
         .from('calendar_entries')
         .select('*')
-        .eq('date', currentDate.toISOString().split('T')[0])
+        .eq('date', getLocalDateString(currentDate))
         .order('start_time')
 
       if (calendarError) throw calendarError
@@ -361,7 +362,7 @@ export default function LogPage() {
   const generateSOA = async () => {
     setIsGeneratingSOA(true)
     try {
-      const dateStr = currentDate.toISOString().split('T')[0]
+      const dateStr = getLocalDateString(currentDate)
 
       // Get all entries for the current date
       const { data: dayEntries } = await supabase
@@ -558,7 +559,7 @@ export default function LogPage() {
 
   // Download SOA as markdown file
   const downloadSOA = () => {
-    const dateStr = currentDate.toISOString().split('T')[0]
+    const dateStr = getLocalDateString(currentDate)
     const filename = `SOA-${dateStr}.md`
 
     const blob = new Blob([soaContent], { type: 'text/markdown' })
@@ -590,7 +591,7 @@ export default function LogPage() {
           task_code: taskCode,
           status_code: (task as any).current_status || 'P',
           work_description: task.title,
-          date: currentDate.toISOString().split('T')[0],
+          date: getLocalDateString(currentDate),
           start_time: timeSlot,
           end_time: endTime,
           is_parallel: false,

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Task, Universe, Phylum, Family, Group } from '@/lib/supabase'
+import { getLocalDateString, getLocalTimeString } from '@/lib/dateUtils'
 
 interface Status {
   code: string
@@ -225,11 +226,11 @@ export default function CreatePage() {
 
         // Create calendar entry for today with 10-minute duration
         const now = new Date()
-        const startTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
+        const startTime = getLocalTimeString(now)
 
         // Calculate end time (10 minutes later)
         const endDate = new Date(now.getTime() + 10 * 60 * 1000)
-        const endTime = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`
+        const endTime = getLocalTimeString(endDate)
 
         await supabase
           .from('calendar_entries')
@@ -237,7 +238,7 @@ export default function CreatePage() {
             task_code: baseCode,
             status_code: selectedStatus.code,
             work_description: taskName,
-            date: now.toISOString().split('T')[0], // Today's date
+            date: getLocalDateString(now), // Today's date in local timezone
             start_time: startTime,
             end_time: endTime,
             is_parallel: false,

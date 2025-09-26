@@ -30,7 +30,15 @@
       "static/chunks/69-7fbee6feaa5c3c68.js",
       "static/chunks/main-app-9d69f3f76b87a954.js",
       "static/chunks/887-5e1adfa4db84040f.js",
-      "static/chunks/app/page-3c0bf86ae30ca62a.js"
+      "static/chunks/app/page-30f2a6c49d4f2d99.js"
+    ],
+    "/todo/page": [
+      "static/chunks/webpack-907c950ecdd466dd.js",
+      "static/chunks/fd9d1056-5be4032601bc51de.js",
+      "static/chunks/69-7fbee6feaa5c3c68.js",
+      "static/chunks/main-app-9d69f3f76b87a954.js",
+      "static/chunks/887-5e1adfa4db84040f.js",
+      "static/chunks/app/todo/page-c99c742d1d71596c.js"
     ],
     "/t/[code]/page": [
       "static/chunks/webpack-907c950ecdd466dd.js",
@@ -47,15 +55,7 @@
       "static/chunks/69-7fbee6feaa5c3c68.js",
       "static/chunks/main-app-9d69f3f76b87a954.js",
       "static/chunks/887-5e1adfa4db84040f.js",
-      "static/chunks/app/log/page-433ea651fd827db5.js"
-    ],
-    "/todo/page": [
-      "static/chunks/webpack-907c950ecdd466dd.js",
-      "static/chunks/fd9d1056-5be4032601bc51de.js",
-      "static/chunks/69-7fbee6feaa5c3c68.js",
-      "static/chunks/main-app-9d69f3f76b87a954.js",
-      "static/chunks/887-5e1adfa4db84040f.js",
-      "static/chunks/app/todo/page-c99c742d1d71596c.js"
+      "static/chunks/app/log/page-dc6702fbf3b1ce06.js"
     ]
   }
 }
