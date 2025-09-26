@@ -66,6 +66,9 @@ export default function BrowsePage() {
   // CSV Import state
   const [showImportDialog, setShowImportDialog] = useState(false)
 
+  // Terminal panel state
+  const [showTerminalPanel, setShowTerminalPanel] = useState(false)
+
   // Load functions
   const loadUniverses = useCallback(async () => {
     try {
@@ -1387,21 +1390,39 @@ export default function BrowsePage() {
           )}
         </div>
 
-        {/* System Management Bar - Mobile */}
-        <div className="mt-4 p-2 bg-gray-100 dark:bg-gray-800 border-t border-gray-300 dark:border-gray-700 rounded-b-lg">
-          <div className="flex justify-center items-center gap-2 font-mono">
-            <button
-              onClick={exportToCSV}
-              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-mono rounded transition-colors"
-            >
-              [SAVE]
-            </button>
-            <button
-              onClick={importFromCSV}
-              className="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-sm font-mono rounded transition-colors"
-            >
-              [LOAD]
-            </button>
+        {/* Terminal Panel Toggle - Mobile */}
+        <div className="fixed bottom-0 left-0 right-0 z-40">
+          <button
+            onClick={() => setShowTerminalPanel(!showTerminalPanel)}
+            className="w-full py-2 text-center text-gray-600 dark:text-gray-400 font-mono text-lg hover:text-black dark:hover:text-white transition-colors"
+          >
+            {showTerminalPanel ? 'v' : '^'}
+          </button>
+
+          {/* Collapsible Terminal Panel */}
+          <div className={`bg-black text-green-400 font-mono border-t border-green-500 transition-all duration-300 ${
+            showTerminalPanel ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
+          }`}>
+            <div className="p-4 flex justify-center items-center gap-4">
+              <button
+                onClick={() => {
+                  exportToCSV()
+                  setShowTerminalPanel(false)
+                }}
+                className="px-4 py-2 bg-transparent hover:bg-green-900/30 text-green-400 border border-green-500 font-mono rounded transition-colors"
+              >
+                [SAVE]
+              </button>
+              <button
+                onClick={() => {
+                  importFromCSV()
+                  setShowTerminalPanel(false)
+                }}
+                className="px-4 py-2 bg-transparent hover:bg-green-900/30 text-green-400 border border-green-500 font-mono rounded transition-colors"
+              >
+                [LOAD]
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1921,21 +1942,45 @@ export default function BrowsePage() {
         </Column>
       </div>
 
-      {/* System Management Bar - spans full width below columns */}
-      <div className="mt-4 p-2 bg-gray-100 dark:bg-gray-800 border-t border-gray-300 dark:border-gray-700 rounded-b-lg">
-        <div className="flex justify-center items-center gap-2 font-mono">
-          <button
-            onClick={exportToCSV}
-            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-mono rounded transition-colors"
-          >
-            [SAVE]
-          </button>
-          <button
-            onClick={importFromCSV}
-            className="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-sm font-mono rounded transition-colors"
-          >
-            [LOAD]
-          </button>
+      {/* Terminal Panel Toggle - Desktop */}
+      <div className="fixed bottom-0 left-0 right-0 z-40">
+        <button
+          onClick={() => setShowTerminalPanel(!showTerminalPanel)}
+          className="w-full py-2 text-center text-gray-600 dark:text-gray-400 font-mono text-lg hover:text-black dark:hover:text-white transition-colors"
+        >
+          {showTerminalPanel ? 'v' : '^'}
+        </button>
+
+        {/* Collapsible Terminal Panel */}
+        <div className={`bg-black text-green-400 font-mono border-t border-green-500 transition-all duration-300 ${
+          showTerminalPanel ? 'max-h-24 opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
+        }`}>
+          <div className="p-6 flex justify-center items-center gap-6">
+            <div className="text-green-300 font-mono text-sm mr-4">
+              &gt; ATOL_SYSTEM_CONTROLS
+            </div>
+            <button
+              onClick={() => {
+                exportToCSV()
+                setShowTerminalPanel(false)
+              }}
+              className="px-6 py-3 bg-transparent hover:bg-green-900/30 text-green-400 border border-green-500 font-mono rounded transition-colors"
+            >
+              [SAVE]
+            </button>
+            <button
+              onClick={() => {
+                importFromCSV()
+                setShowTerminalPanel(false)
+              }}
+              className="px-6 py-3 bg-transparent hover:bg-green-900/30 text-green-400 border border-green-500 font-mono rounded transition-colors"
+            >
+              [LOAD]
+            </button>
+            <div className="text-green-600 font-mono text-xs ml-4">
+              {/* bulk data operations */}
+            </div>
+          </div>
         </div>
       </div>
 
