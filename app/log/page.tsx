@@ -383,17 +383,61 @@ export default function LogPage() {
         return acc
       }, {} as Record<string, any>)
 
-      // Group by universe for SOA structure
-      const universeGroups: Record<string, { name: string, entries: any[] }> = {}
+      // Group by universe > phylum > family > task for SOA structure
+      const universeGroups: Record<string, {
+        name: string,
+        phylums: Record<string, {
+          name: string,
+          families: Record<string, {
+            name: string,
+            tasks: Record<string, {
+              title: string,
+              code: string,
+              entries: any[]
+            }>
+          }>
+        }>
+      }> = {}
 
       dayEntries?.forEach(entry => {
         const task = taskMap[entry.task_code]
         if (task) {
           const universeName = task.universe_name || 'Unknown'
+          const phylumName = task.phylum_name || 'Unknown'
+          const familyName = task.family_name || null
+          const taskKey = task.base_code
+
+          // Initialize universe
           if (!universeGroups[universeName]) {
-            universeGroups[universeName] = { name: universeName, entries: [] }
+            universeGroups[universeName] = { name: universeName, phylums: {} }
           }
-          universeGroups[universeName].entries.push({
+
+          // Initialize phylum
+          if (!universeGroups[universeName].phylums[phylumName]) {
+            universeGroups[universeName].phylums[phylumName] = { name: phylumName, families: {} }
+          }
+
+          // Initialize family (use "Direct" if no family)
+          const familyKey = familyName || 'Direct'
+          const displayFamilyName = familyName || 'Direct'
+          if (!universeGroups[universeName].phylums[phylumName].families[familyKey]) {
+            universeGroups[universeName].phylums[phylumName].families[familyKey] = {
+              name: displayFamilyName,
+              tasks: {}
+            }
+          }
+
+          // Initialize task
+          if (!universeGroups[universeName].phylums[phylumName].families[familyKey].tasks[taskKey]) {
+            universeGroups[universeName].phylums[phylumName].families[familyKey].tasks[taskKey] = {
+              title: task.title,
+              code: task.base_code,
+              entries: []
+            }
+          }
+
+          // Add entry to task
+          universeGroups[universeName].phylums[phylumName].families[familyKey].tasks[taskKey].entries.push({
             ...entry,
             taskTitle: task.title,
             taskCode: task.base_code,
@@ -402,11 +446,32 @@ export default function LogPage() {
         }
       })
 
+      // Sort entries within each task by start time
+      Object.values(universeGroups).forEach(universe => {
+        Object.values(universe.phylums).forEach(phylum => {
+          Object.values(phylum.families).forEach(family => {
+            Object.values(family.tasks).forEach(task => {
+              task.entries.sort((a, b) => a.start_time.localeCompare(b.start_time))
+            })
+          })
+        })
+      })
+
       // Generate JSX content for proper card interface
-      const totalEntries = Object.values(universeGroups).reduce((sum, group) => sum + group.entries.length, 0)
-      const uniqueTasks = new Set(Object.values(universeGroups).flatMap(group =>
-        group.entries.map(e => e.task_code)
-      )).size
+      const totalEntries = Object.values(universeGroups).reduce((sum, universe) =>
+        sum + Object.values(universe.phylums).reduce((phylumSum, phylum) =>
+          phylumSum + Object.values(phylum.families).reduce((familySum, family) =>
+            familySum + Object.values(family.tasks).reduce((taskSum, task) =>
+              taskSum + task.entries.length, 0), 0), 0), 0)
+
+      const uniqueTasks = Object.values(universeGroups).reduce((tasks, universe) => {
+        Object.values(universe.phylums).forEach(phylum => {
+          Object.values(phylum.families).forEach(family => {
+            Object.keys(family.tasks).forEach(taskCode => tasks.add(taskCode))
+          })
+        })
+        return tasks
+      }, new Set()).size
 
       const content = (
         <div className="space-y-6">
@@ -436,7 +501,7 @@ export default function LogPage() {
               </div>
             </div>
           ) : (
-            Object.entries(universeGroups).map(([universeName, group]) => {
+            Object.entries(universeGroups).map(([universeName, universe]) => {
               const universeColors = {
                 'Work': 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700',
                 'Personal': 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700',
@@ -444,47 +509,93 @@ export default function LogPage() {
               }
               const universeColor = universeColors[universeName as keyof typeof universeColors] || 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
 
+              const universeTaskCount = Object.values(universe.phylums).reduce((total, phylum) =>
+                total + Object.values(phylum.families).reduce((familyTotal, family) =>
+                  familyTotal + Object.keys(family.tasks).length, 0), 0)
+
+              const universeEntryCount = Object.values(universe.phylums).reduce((total, phylum) =>
+                total + Object.values(phylum.families).reduce((familyTotal, family) =>
+                  familyTotal + Object.values(family.tasks).reduce((taskTotal, task) =>
+                    taskTotal + task.entries.length, 0), 0), 0)
+
               return (
                 <div key={universeName} className={`rounded-lg p-4 border ${universeColor}`}>
                   <h3 className="font-mono font-bold text-lg mb-3">{universeName.toUpperCase()}</h3>
-                  <div className="space-y-2">
-                    {group.entries.map((entry, index) => {
-                      const duration = entry.end_time
-                        ? `${entry.start_time} - ${entry.end_time}`
-                        : `${entry.start_time} (ongoing)`
 
-                      const statusColors = {
-                        'R': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-                        'P': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-                        'D': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-                        'C': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-                        'F': 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300',
-                        'X': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                      }
-                      const statusColor = statusColors[entry.status_code as keyof typeof statusColors] || 'bg-gray-100 text-gray-800'
+                  {/* Phylums */}
+                  <div className="space-y-3">
+                    {Object.entries(universe.phylums).map(([phylumName, phylum]) => (
+                      <div key={phylumName} className="ml-2">
+                        <h4 className="font-mono font-semibold text-md text-gray-700 dark:text-gray-300 mb-2">
+                          {phylumName}
+                        </h4>
 
-                      return (
-                        <div key={index} className="bg-white dark:bg-gray-800 rounded p-3 border border-gray-200 dark:border-gray-700">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className={`px-2 py-1 rounded text-xs font-mono ${statusColor}`}>
-                                [{entry.fullStatusCode}]
-                              </span>
-                              <span className="font-mono text-sm text-gray-600 dark:text-gray-400">{duration}</span>
+                        {/* Families */}
+                        <div className="space-y-2">
+                          {Object.entries(phylum.families).map(([familyKey, family]) => (
+                            <div key={familyKey} className="ml-3">
+                              {family.name !== 'Direct' && (
+                                <h5 className="font-mono text-sm text-gray-600 dark:text-gray-400 mb-1">
+                                  {family.name}
+                                </h5>
+                              )}
+
+                              {/* Tasks */}
+                              <div className="space-y-2 ml-2">
+                                {Object.entries(family.tasks).map(([taskCode, task]) => (
+                                  <div key={taskCode} className="border-l-2 border-gray-300 dark:border-gray-600 pl-3">
+                                    <div className="font-medium text-gray-800 dark:text-gray-200 mb-1">
+                                      {task.title}
+                                    </div>
+
+                                    {/* Task Entries */}
+                                    <div className="space-y-1">
+                                      {task.entries.map((entry, entryIndex) => {
+                                        const duration = entry.end_time
+                                          ? `${entry.start_time} - ${entry.end_time}`
+                                          : `${entry.start_time} (ongoing)`
+
+                                        const statusColors = {
+                                          'R': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+                                          'P': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+                                          'D': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+                                          'C': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+                                          'F': 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300',
+                                          'X': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                                        }
+                                        const statusColor = statusColors[entry.status_code as keyof typeof statusColors] || 'bg-gray-100 text-gray-800'
+
+                                        return (
+                                          <div key={entryIndex} className="bg-white dark:bg-gray-800 rounded p-3 border border-gray-200 dark:border-gray-700">
+                                            <div className="flex items-start justify-between mb-1">
+                                              <div className="flex items-center gap-2">
+                                                <span className={`px-2 py-1 rounded text-xs font-mono ${statusColor}`}>
+                                                  [{entry.fullStatusCode}]
+                                                </span>
+                                                <span className="font-mono text-sm text-gray-600 dark:text-gray-400">{duration}</span>
+                                              </div>
+                                            </div>
+                                            {entry.work_description && entry.work_description !== entry.taskTitle && (
+                                              <div className="text-sm text-gray-600 dark:text-gray-400">
+                                                {entry.work_description}
+                                              </div>
+                                            )}
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                          <div className="font-medium">{entry.taskTitle}</div>
-                          {entry.work_description && entry.work_description !== entry.taskTitle && (
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                              {entry.work_description}
-                            </div>
-                          )}
+                          ))}
                         </div>
-                      )
-                    })}
+                      </div>
+                    ))}
                   </div>
+
                   <div className="mt-3 text-sm text-gray-600 dark:text-gray-400 font-mono">
-                    {group.entries.length} activities in {universeName}
+                    {universeEntryCount} activities across {universeTaskCount} tasks in {universeName}
                   </div>
                 </div>
               )
@@ -504,7 +615,7 @@ export default function LogPage() {
       setSOAJSXContent(content)
 
       // Generate markdown content for download
-      const markdownContent = generateMarkdownSOA(entries)
+      const markdownContent = generateMarkdownSOA(universeGroups)
       setSOAContent(markdownContent)
 
       setShowSOA(true)
@@ -516,44 +627,67 @@ export default function LogPage() {
   }
 
   // Generate markdown content for SOA download
-  const generateMarkdownSOA = (entries: CalendarEntry[]): string => {
-    const universeMap = new Map<string, CalendarEntry[]>()
-    entries.forEach(entry => {
-      const universe = entry.task_code?.substring(0, 1) || 'Other'
-      if (!universeMap.has(universe)) {
-        universeMap.set(universe, [])
-      }
-      universeMap.get(universe)?.push(entry)
-    })
+  const generateMarkdownSOA = (universeGroups: any): string => {
+    // Calculate totals
+    const totalEntries = Object.values(universeGroups).reduce((sum: number, universe: any) =>
+      sum + Object.values(universe.phylums).reduce((phylumSum: number, phylum: any) =>
+        phylumSum + Object.values(phylum.families).reduce((familySum: number, family: any) =>
+          familySum + Object.values(family.tasks).reduce((taskSum: number, task: any) =>
+            taskSum + task.entries.length, 0), 0), 0), 0)
 
-    const totalEntries = entries.length
-    const statusCounts = entries.reduce((acc, entry) => {
-      acc[entry.status_code] = (acc[entry.status_code] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-
+    const uniqueTasks = Object.values(universeGroups).reduce((tasks: Set<string>, universe: any) => {
+      Object.values(universe.phylums).forEach((phylum: any) => {
+        Object.values(phylum.families).forEach((family: any) => {
+          Object.keys(family.tasks).forEach((taskCode: string) => tasks.add(taskCode))
+        })
+      })
+      return tasks
+    }, new Set()).size
     let markdown = `# Statement of Activities\n`
     markdown += `## Date: ${currentDate.toLocaleDateString()}\n\n`
     markdown += `### Summary\n`
     markdown += `- **Total Activities:** ${totalEntries}\n`
-    markdown += `- **Received:** ${statusCounts.R || 0}\n`
-    markdown += `- **Pending:** ${statusCounts.P || 0}\n`
-    markdown += `- **Delivered:** ${statusCounts.D || 0}\n`
-    markdown += `- **Completed:** ${statusCounts.C || 0}\n`
-    markdown += `- **Cancelled:** ${statusCounts.X || 0}\n\n`
+    markdown += `- **Unique Tasks:** ${uniqueTasks}\n`
+    markdown += `- **Universes:** ${Object.keys(universeGroups).length}\n\n`
 
-    Array.from(universeMap.entries()).forEach(([universe, universeEntries]) => {
-      const universeName = universe === 'W' ? 'Work' : universe === 'A' ? 'Admin' : universe === 'C' ? 'Communication' : universe
-      markdown += `### ${universeName} Universe\n\n`
-      universeEntries.forEach(entry => {
-        const duration = entry.end_time ?
-          Math.round((timeToMinutes(entry.end_time) - timeToMinutes(entry.start_time)) / 15) * 15 : 30
-        markdown += `- **${entry.task_code}** [${entry.status_code}] ${entry.work_description} (${entry.start_time} - ${entry.end_time || 'ongoing'}, ${duration}m)\n`
+    // Generate hierarchical structure
+    Object.entries(universeGroups).forEach(([universeName, universe]: [string, any]) => {
+      const universeEntryCount = Object.values(universe.phylums).reduce((total: number, phylum: any) =>
+        total + Object.values(phylum.families).reduce((familyTotal: number, family: any) =>
+          familyTotal + Object.values(family.tasks).reduce((taskTotal: number, task: any) =>
+            taskTotal + task.entries.length, 0), 0), 0)
+
+      markdown += `## ${universeName.toUpperCase()} (${universeEntryCount} activities)\n\n`
+
+      Object.entries(universe.phylums).forEach(([phylumName, phylum]: [string, any]) => {
+        markdown += `### ${phylumName}\n\n`
+
+        Object.entries(phylum.families).forEach(([familyKey, family]: [string, any]) => {
+          if (family.name !== 'Direct') {
+            markdown += `#### ${family.name}\n\n`
+          }
+
+          Object.entries(family.tasks).forEach(([taskCode, task]: [string, any]) => {
+            markdown += `**${task.title}** (${task.code})\n\n`
+
+            task.entries.forEach((entry: any) => {
+              const duration = entry.end_time
+                ? `${entry.start_time} - ${entry.end_time}`
+                : `${entry.start_time} (ongoing)`
+
+              markdown += `- [${entry.fullStatusCode}] ${duration}`
+              if (entry.work_description && entry.work_description !== entry.taskTitle) {
+                markdown += ` - ${entry.work_description}`
+              }
+              markdown += '\n'
+            })
+            markdown += '\n'
+          })
+        })
       })
-      markdown += '\n'
     })
 
-    markdown += `\n---\nGenerated on ${new Date().toLocaleString()}\nATOL Semantic Ledger v1.0\n`
+    markdown += `---\nGenerated on ${new Date().toLocaleString()}\nATOL Semantic Ledger v1.0\n`
     return markdown
   }
 
