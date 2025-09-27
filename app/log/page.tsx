@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Task } from '@/lib/supabase'
 import { getLocalDateString } from '@/lib/dateUtils'
+
+type ViewMode = 'daily' | 'weekly' | 'monthly'
 
 interface CalendarEntry {
   id: string
@@ -36,7 +38,10 @@ interface DragState {
 export default function LogPage() {
   // Core state
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [viewMode, setViewMode] = useState<ViewMode>('daily')
   const [entries, setEntries] = useState<CalendarEntry[]>([])
+  const [weeklyEntries, setWeeklyEntries] = useState<CalendarEntry[]>([])
+  const [monthlyEntries, setMonthlyEntries] = useState<CalendarEntry[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [isHydrated, setIsHydrated] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -67,11 +72,12 @@ export default function LogPage() {
   // Notes state
   const [noteType, setNoteType] = useState<'task' | 'step' | 'outcome'>('step')
 
-  // SOA state
-  const [showSOA, setShowSOA] = useState(false)
-  const [soaContent, setSOAContent] = useState<string>('')
-  const [soaJSXContent, setSOAJSXContent] = useState<JSX.Element | null>(null)
-  const [isGeneratingSOA, setIsGeneratingSOA] = useState(false)
+  // Summary state (SOA/SOWA/SOMA)
+  const [showSummary, setShowSummary] = useState(false)
+  const [summaryContent, setSummaryContent] = useState<string>('')
+  const [summaryJSXContent, setSummaryJSXContent] = useState<JSX.Element | null>(null)
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false)
+  const [summaryType, setSummaryType] = useState<'SOA' | 'SOWA' | 'SOMA'>('SOA')
 
   // Refs
   const calendarRef = useRef<HTMLDivElement>(null)
@@ -88,10 +94,49 @@ export default function LogPage() {
 
   useEffect(() => {
     if (isHydrated) {
-      loadEntries()
+      if (viewMode === 'daily') {
+        loadEntries()
+      } else if (viewMode === 'weekly') {
+        loadWeeklyEntries()
+      } else if (viewMode === 'monthly') {
+        loadMonthlyEntries()
+      }
       loadTasks()
     }
-  }, [currentDate, isHydrated])
+  }, [currentDate, viewMode, isHydrated])
+
+  // Helper functions for week and month calculations
+  const getWeekBounds = (date: Date) => {
+    const start = new Date(date)
+    start.setDate(date.getDate() - date.getDay()) // Start of week (Sunday)
+    const end = new Date(start)
+    end.setDate(start.getDate() + 6) // End of week (Saturday)
+    return { start, end }
+  }
+
+  const getMonthBounds = (date: Date) => {
+    const start = new Date(date.getFullYear(), date.getMonth(), 1)
+    const end = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+    return { start, end }
+  }
+
+  const getWeekNumber = (date: Date) => {
+    const start = new Date(date.getFullYear(), 0, 1)
+    const diff = date.getTime() - start.getTime()
+    const oneWeek = 1000 * 60 * 60 * 24 * 7
+    return Math.floor(diff / oneWeek) + 1
+  }
+
+  const formatWeekRange = (date: Date) => {
+    const { start, end } = getWeekBounds(date)
+    const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return `${startStr} - ${endStr}, ${date.getFullYear()}`
+  }
+
+  const formatMonthYear = (date: Date) => {
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  }
 
   // Data loading functions
   const loadEntries = async () => {
@@ -164,6 +209,42 @@ export default function LogPage() {
       setEntries(enrichedEntries)
     } catch (error) {
       console.error('Error loading entries:', error)
+    }
+  }
+
+  const loadWeeklyEntries = async () => {
+    try {
+      const { start, end } = getWeekBounds(currentDate)
+      const { data: calendarEntries, error } = await supabase
+        .from('calendar_entries')
+        .select('*')
+        .gte('date', getLocalDateString(start))
+        .lte('date', getLocalDateString(end))
+        .order('date')
+        .order('start_time')
+
+      if (error) throw error
+      setWeeklyEntries(calendarEntries || [])
+    } catch (error) {
+      console.error('Error loading weekly entries:', error)
+    }
+  }
+
+  const loadMonthlyEntries = async () => {
+    try {
+      const { start, end } = getMonthBounds(currentDate)
+      const { data: calendarEntries, error } = await supabase
+        .from('calendar_entries')
+        .select('*')
+        .gte('date', getLocalDateString(start))
+        .lte('date', getLocalDateString(end))
+        .order('date')
+        .order('start_time')
+
+      if (error) throw error
+      setMonthlyEntries(calendarEntries || [])
+    } catch (error) {
+      console.error('Error loading monthly entries:', error)
     }
   }
 
@@ -358,21 +439,53 @@ export default function LogPage() {
     return `${entry.status_code}-${entry.task_code}`
   }
 
-  // Generate SOA (Statement of Activities) for current date
-  const generateSOA = async () => {
-    setIsGeneratingSOA(true)
+  // Generate Summary (SOA/SOWA/SOMA) based on current view mode
+  const generateSummary = async () => {
+    setIsGeneratingSummary(true)
+    const type = viewMode === 'daily' ? 'SOA' : viewMode === 'weekly' ? 'SOWA' : 'SOMA'
+    setSummaryType(type)
     try {
-      const dateStr = getLocalDateString(currentDate)
+      let entries
+      let dateRange
 
-      // Get all entries for the current date
-      const { data: dayEntries } = await supabase
-        .from('calendar_entries')
-        .select('*')
-        .eq('date', dateStr)
-        .order('start_time')
+      if (type === 'SOA') {
+        // Daily entries
+        const dateStr = getLocalDateString(currentDate)
+        const { data: dayEntries } = await supabase
+          .from('calendar_entries')
+          .select('*')
+          .eq('date', dateStr)
+          .order('start_time')
+        entries = dayEntries || []
+        dateRange = dateStr
+      } else if (type === 'SOWA') {
+        // Weekly entries
+        const { start, end } = getWeekBounds(currentDate)
+        const { data: weekEntries } = await supabase
+          .from('calendar_entries')
+          .select('*')
+          .gte('date', getLocalDateString(start))
+          .lte('date', getLocalDateString(end))
+          .order('date')
+          .order('start_time')
+        entries = weekEntries || []
+        dateRange = `${formatWeekRange(currentDate)}`
+      } else {
+        // Monthly entries (SOMA)
+        const { start, end } = getMonthBounds(currentDate)
+        const { data: monthEntries } = await supabase
+          .from('calendar_entries')
+          .select('*')
+          .gte('date', getLocalDateString(start))
+          .lte('date', getLocalDateString(end))
+          .order('date')
+          .order('start_time')
+        entries = monthEntries || []
+        dateRange = formatMonthYear(currentDate)
+      }
 
       // Get task details for all entries
-      const taskCodes = Array.from(new Set(dayEntries?.map(e => e.task_code) || []))
+      const taskCodes = Array.from(new Set(entries?.map(e => e.task_code) || []))
       const { data: tasks } = await supabase
         .from('task_details')
         .select('*')
@@ -399,7 +512,7 @@ export default function LogPage() {
         }>
       }> = {}
 
-      dayEntries?.forEach(entry => {
+      entries?.forEach(entry => {
         const task = taskMap[entry.task_code]
         if (task) {
           const universeName = task.universe_name || 'Unknown'
@@ -612,22 +725,22 @@ export default function LogPage() {
       )
 
       // Set JSX content for display
-      setSOAJSXContent(content)
+      setSummaryJSXContent(content)
 
       // Generate markdown content for download
-      const markdownContent = generateMarkdownSOA(universeGroups)
-      setSOAContent(markdownContent)
+      const markdownContent = generateMarkdownSummary(universeGroups, type, dateRange)
+      setSummaryContent(markdownContent)
 
-      setShowSOA(true)
+      setShowSummary(true)
     } catch (error) {
-      console.error('Error generating SOA:', error)
+      console.error('Error generating summary:', error)
     } finally {
-      setIsGeneratingSOA(false)
+      setIsGeneratingSummary(false)
     }
   }
 
-  // Generate markdown content for SOA download
-  const generateMarkdownSOA = (universeGroups: any): string => {
+  // Generate markdown content for summary download
+  const generateMarkdownSummary = (universeGroups: any, summaryType: 'SOA' | 'SOWA' | 'SOMA', dateRange: string): string => {
     // Calculate totals
     const totalEntries = Object.values(universeGroups).reduce((sum: number, universe: any) =>
       sum + Object.values(universe.phylums).reduce((phylumSum: number, phylum: any) =>
@@ -643,8 +756,14 @@ export default function LogPage() {
       })
       return tasks
     }, new Set()).size
-    let markdown = `# Statement of Activities\n`
-    markdown += `## Date: ${currentDate.toLocaleDateString()}\n\n`
+    const titles = {
+      SOA: 'Statement of Activities',
+      SOWA: 'Statement of Weekly Activities',
+      SOMA: 'Statement of Monthly Activities'
+    }
+
+    let markdown = `# ${titles[summaryType]}\n`
+    markdown += `## ${summaryType === 'SOA' ? 'Date' : 'Period'}: ${dateRange}\n\n`
     markdown += `### Summary\n`
     markdown += `- **Total Activities:** ${totalEntries}\n`
     markdown += `- **Unique Tasks:** ${uniqueTasks}\n`
@@ -692,11 +811,16 @@ export default function LogPage() {
   }
 
   // Download SOA as markdown file
-  const downloadSOA = () => {
+  const downloadSummary = () => {
     const dateStr = getLocalDateString(currentDate)
-    const filename = `SOA-${dateStr}.md`
 
-    const blob = new Blob([soaContent], { type: 'text/markdown' })
+    const filenames = {
+      SOA: `SOA-${dateStr}.md`,
+      SOWA: `SOWA-Week${getWeekNumber(currentDate)}-${currentDate.getFullYear()}.md`,
+      SOMA: `SOMA-${currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).replace(' ', '-')}.md`
+    }
+    const filename = filenames[summaryType]
+    const blob = new Blob([summaryContent], { type: 'text/markdown' })
     const url = URL.createObjectURL(blob)
 
     const a = document.createElement('a')
@@ -957,7 +1081,13 @@ export default function LogPage() {
   // Date navigation
   const navigateDate = (direction: 'prev' | 'next') => {
     const newDate = new Date(currentDate)
-    newDate.setDate(currentDate.getDate() + (direction === 'next' ? 1 : -1))
+    if (viewMode === 'daily') {
+      newDate.setDate(currentDate.getDate() + (direction === 'next' ? 1 : -1))
+    } else if (viewMode === 'weekly') {
+      newDate.setDate(currentDate.getDate() + (direction === 'next' ? 7 : -7))
+    } else if (viewMode === 'monthly') {
+      newDate.setMonth(currentDate.getMonth() + (direction === 'next' ? 1 : -1))
+    }
     setCurrentDate(newDate)
   }
 
@@ -1053,6 +1183,39 @@ export default function LogPage() {
                 </div>
                 <div className="w-px h-12 bg-gray-400 mx-2" />
                 <div className="flex flex-col space-y-1">
+                  {/* View Mode Buttons */}
+                  <div className="flex space-x-1 mb-1">
+                    <button
+                      onClick={() => setViewMode('daily')}
+                      className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
+                        viewMode === 'daily'
+                          ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                          : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      DAY
+                    </button>
+                    <button
+                      onClick={() => setViewMode('weekly')}
+                      className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
+                        viewMode === 'weekly'
+                          ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                          : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      WK
+                    </button>
+                    <button
+                      onClick={() => setViewMode('monthly')}
+                      className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
+                        viewMode === 'monthly'
+                          ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                          : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      MO
+                    </button>
+                  </div>
                   <button
                     onClick={() => setShowTaskPanel(!showTaskPanel)}
                     className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
@@ -1064,11 +1227,11 @@ export default function LogPage() {
                     TASKS
                   </button>
                   <button
-                    onClick={generateSOA}
-                    disabled={isGeneratingSOA}
+                    onClick={generateSummary}
+                    disabled={isGeneratingSummary}
                     className="px-2 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded text-xs font-mono transition-colors"
                   >
-                    {isGeneratingSOA ? 'GEN...' : 'SOA'}
+                    {isGeneratingSummary ? 'GEN...' : summaryType}
                   </button>
                 </div>
               </div>
@@ -1076,7 +1239,11 @@ export default function LogPage() {
           ) : (
             /* Desktop Layout: Horizontal */
             <div className="flex items-center justify-between">
-              <h1 className="text-xl font-bold">{formatDate()}</h1>
+              <h1 className="text-xl font-bold">
+                {viewMode === 'daily' && formatDate()}
+                {viewMode === 'weekly' && `Week ${getWeekNumber(currentDate)}: ${formatWeekRange(currentDate)}`}
+                {viewMode === 'monthly' && formatMonthYear(currentDate)}
+              </h1>
               <div className="flex items-center space-x-2">
               <button
                 onClick={() => navigateDate('prev')}
@@ -1097,6 +1264,39 @@ export default function LogPage() {
                 [&gt;]
               </button>
               <div className="w-px h-6 bg-gray-400 mx-2" />
+              {/* View Mode Buttons */}
+              <div className="flex space-x-2 mr-4">
+                <button
+                  onClick={() => setViewMode('daily')}
+                  className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
+                    viewMode === 'daily'
+                      ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  [DAILY]
+                </button>
+                <button
+                  onClick={() => setViewMode('weekly')}
+                  className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
+                    viewMode === 'weekly'
+                      ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  [WEEKLY]
+                </button>
+                <button
+                  onClick={() => setViewMode('monthly')}
+                  className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
+                    viewMode === 'monthly'
+                      ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  [MONTHLY]
+                </button>
+              </div>
               <button
                 onClick={() => setShowTaskPanel(!showTaskPanel)}
                 className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
@@ -1108,11 +1308,11 @@ export default function LogPage() {
                 [TASKS]
               </button>
               <button
-                onClick={generateSOA}
-                disabled={isGeneratingSOA}
+                onClick={generateSummary}
+                disabled={isGeneratingSummary}
                 className="px-2 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded text-xs font-mono transition-colors"
               >
-                {isGeneratingSOA ? '[GENERATING...]' : '[SOA]'}
+                {isGeneratingSummary ? '[GENERATING...]' : `[${summaryType}]`}
               </button>
               </div>
             </div>
@@ -1173,9 +1373,11 @@ export default function LogPage() {
         {/* Calendar */}
         <div className="flex-1 p-4">
           <div className="relative">
-            <div
-              ref={calendarRef}
-              className="relative bg-white dark:bg-gray-900 rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden"
+            {/* Daily View */}
+            {viewMode === 'daily' && (
+              <div
+                ref={calendarRef}
+                className="relative bg-white dark:bg-gray-900 rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden"
               onMouseLeave={() => {
                 setHoveredTimeSlot(null)
                 setHoveredEntry(null)
@@ -1363,6 +1565,150 @@ export default function LogPage() {
                 </div>
               )}
             </div>
+            )}
+
+            {/* Weekly View */}
+            {viewMode === 'weekly' && (
+              <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
+                <div className="p-4">
+                  <div className="text-center font-mono text-lg font-bold mb-4">
+                    Week {getWeekNumber(currentDate)}: {formatWeekRange(currentDate)}
+                  </div>
+
+                  {/* Weekly Heat Map Grid */}
+                  <div className="grid grid-cols-8 gap-1 text-xs font-mono">
+                    {/* Header Row */}
+                    <div className="text-center font-bold p-2">TIME</div>
+                    {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
+                      <div key={day} className="text-center font-bold p-2">{day}</div>
+                    ))}
+
+                    {/* Time Rows */}
+                    {Array.from({ length: 24 }, (_, hour) => {
+                      const { start: weekStart } = getWeekBounds(currentDate)
+                      return (
+                        <React.Fragment key={hour}>
+                          {/* Hour Label */}
+                          <div className="text-center p-2 bg-gray-50 dark:bg-gray-800">
+                            {hour.toString().padStart(2, '0')}:00
+                          </div>
+
+                          {/* Day Columns */}
+                          {Array.from({ length: 7 }, (_, dayIndex) => {
+                            const dayDate = new Date(weekStart)
+                            dayDate.setDate(weekStart.getDate() + dayIndex)
+                            const entryEntries = weeklyEntries.filter(entry => {
+                              const entryDate = new Date(entry.date)
+                              const entryHour = parseInt(entry.start_time.split(':')[0])
+                              return entryDate.toDateString() === dayDate.toDateString() && entryHour === hour
+                            })
+
+                            const intensity = entryEntries.length === 0 ? 'low' :
+                                             entryEntries.length <= 2 ? 'medium' : 'high'
+
+                            const intensityClasses = {
+                              low: 'bg-gray-100 dark:bg-gray-800',
+                              medium: 'bg-gray-300 dark:bg-gray-600',
+                              high: 'bg-gray-500 dark:bg-gray-400'
+                            }
+
+                            return (
+                              <div
+                                key={dayIndex}
+                                className={`h-8 border border-gray-200 dark:border-gray-700 ${intensityClasses[intensity]} hover:opacity-80 cursor-pointer transition-opacity`}
+                                title={`${dayDate.toLocaleDateString()}: ${entryEntries.length} entries`}
+                              />
+                            )
+                          })}
+                        </React.Fragment>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Monthly View */}
+            {viewMode === 'monthly' && (
+              <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
+                <div className="p-4">
+                  <div className="text-center font-mono text-lg font-bold mb-4">
+                    {formatMonthYear(currentDate)}
+                  </div>
+
+                  {/* Monthly Calendar Grid */}
+                  <div className="grid grid-cols-7 gap-1 text-xs font-mono">
+                    {/* Header Row */}
+                    {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
+                      <div key={day} className="text-center font-bold p-2 bg-gray-50 dark:bg-gray-800">{day}</div>
+                    ))}
+
+                    {/* Calendar Days */}
+                    {(() => {
+                      const { start: monthStart, end: monthEnd } = getMonthBounds(currentDate)
+                      const startDate = new Date(monthStart)
+                      startDate.setDate(startDate.getDate() - startDate.getDay()) // Start from Sunday
+
+                      const days = []
+                      const currentDate_temp = new Date(startDate)
+
+                      for (let i = 0; i < 42; i++) { // 6 weeks max
+                        const dayEntries = monthlyEntries.filter(entry => {
+                          const entryDate = new Date(entry.date)
+                          return entryDate.toDateString() === currentDate_temp.toDateString()
+                        })
+
+                        const isCurrentMonth = currentDate_temp.getMonth() === currentDate.getMonth()
+                        const intensity = dayEntries.length === 0 ? 'low' :
+                                         dayEntries.length <= 3 ? 'medium' : 'high'
+
+                        const intensityClasses = {
+                          low: 'bg-gray-100 dark:bg-gray-800',
+                          medium: 'bg-gray-300 dark:bg-gray-600',
+                          high: 'bg-gray-500 dark:bg-gray-400'
+                        }
+
+                        days.push(
+                          <div
+                            key={i}
+                            className={`h-16 p-1 border border-gray-200 dark:border-gray-700 ${
+                              isCurrentMonth ? intensityClasses[intensity] : 'bg-gray-50 dark:bg-gray-900 opacity-30'
+                            } hover:opacity-80 cursor-pointer transition-opacity relative`}
+                            title={`${currentDate_temp.toLocaleDateString()}: ${dayEntries.length} entries`}
+                          >
+                            <div className="text-xs font-bold">{currentDate_temp.getDate()}</div>
+                            {dayEntries.length > 0 && (
+                              <div className="text-xs text-center mt-1">{dayEntries.length}</div>
+                            )}
+                          </div>
+                        )
+
+                        currentDate_temp.setDate(currentDate_temp.getDate() + 1)
+                        if (i === 41 || (currentDate_temp > monthEnd && currentDate_temp.getDay() === 0)) break
+                      }
+
+                      return days
+                    })()}
+                  </div>
+
+                  {/* Legend */}
+                  <div className="mt-4 flex justify-center space-x-4 text-xs font-mono">
+                    <div className="flex items-center space-x-1">
+                      <div className="w-3 h-3 bg-gray-100 dark:bg-gray-800 border"></div>
+                      <span>Low Activity</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <div className="w-3 h-3 bg-gray-300 dark:bg-gray-600 border"></div>
+                      <span>Medium Activity</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <div className="w-3 h-3 bg-gray-500 dark:bg-gray-400 border"></div>
+                      <span>High Activity</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1680,21 +2026,25 @@ export default function LogPage() {
         </div>
       )}
 
-      {/* SOA Modal */}
-      {showSOA && (
+      {/* Summary Modal */}
+      {showSummary && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4">
           <div className="bg-white dark:bg-gray-900 rounded-lg w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] flex flex-col">
             {/* Header */}
             <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg sm:text-xl font-mono font-bold">Statement of Activities</h3>
+                  <h3 className="text-lg sm:text-xl font-mono font-bold">
+                    {summaryType === 'SOA' && 'Statement of Activities'}
+                    {summaryType === 'SOWA' && 'Statement of Weekly Activities'}
+                    {summaryType === 'SOMA' && 'Statement of Monthly Activities'}
+                  </h3>
                   <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 font-mono">
                     {formatDate()}
                   </div>
                 </div>
                 <button
-                  onClick={() => setShowSOA(false)}
+                  onClick={() => setShowSummary(false)}
                   className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
                 >
                   ✕
@@ -1704,28 +2054,28 @@ export default function LogPage() {
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-              {soaJSXContent}
+              {summaryJSXContent}
             </div>
 
             {/* Actions */}
             <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-2 sm:gap-3">
               <button
-                onClick={downloadSOA}
+                onClick={downloadSummary}
                 className="flex-1 bg-green-600 text-white py-3 px-4 rounded hover:bg-green-700 transition-colors font-mono text-xs sm:text-sm"
               >
                 [DOWNLOAD .MD]
               </button>
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(soaContent)
-                  alert('SOA copied to clipboard!')
+                  navigator.clipboard.writeText(summaryContent)
+                  alert(`${summaryType} copied to clipboard!`)
                 }}
                 className="flex-1 bg-blue-600 text-white py-3 px-4 rounded hover:bg-blue-700 transition-colors font-mono text-xs sm:text-sm"
               >
                 [COPY]
               </button>
               <button
-                onClick={() => setShowSOA(false)}
+                onClick={() => setShowSummary(false)}
                 className="flex-1 bg-gray-500 text-white py-3 px-4 rounded hover:bg-gray-600 transition-colors font-mono text-xs sm:text-sm"
               >
                 [CLOSE]
